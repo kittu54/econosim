@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "env": {
+    "PYTHONPATH": "."
+  },
   "builds": [
     {
       "src": "api/main.py",
