@@ -115,9 +115,22 @@ econosim/
 
 ---
 
+### Phase 5 — In Progress (Platform)
+- [x] Modern Next.js dashboard (`web/`) with React, TypeScript, Tailwind CSS
+- [x] FastAPI backend (`api/main.py`) for serving simulation data
+- [x] Vercel deployment configuration
+- [x] Fixed `inventory_asset` balance sheet bug
+- [x] Fixed delinquency threshold bug
+- [x] Added 78 new tests for agents and markets (208 total)
+- [ ] Data persistence layer
+- [ ] Scenario comparison UI
+
+---
+
 ## 4. What Is Currently In Progress
 
-- Phase 3b complete; ready for RL training runs and Phase 4 (advanced extensions)
+- Phase 5 platform features: Modern UI deployed, backend API ready
+- Ready for RL training runs (Phase 3c) and advanced extensions (Phase 4)
 
 ---
 
@@ -177,6 +190,13 @@ econosim/
 | `tests/test_integration/` | Full simulation integration tests |
 | `tests/test_experiments/` | Experiment runner / metrics tests |
 | `tests/test_rl/` | RL environment tests |
+| `web/` | Next.js + React + Tailwind CSS frontend |
+| `web/src/app/page.tsx` | Main dashboard page component |
+| `web/src/components/` | KPI cards, charts, sidebar, tab views |
+| `web/src/lib/` | API client, types, formatting utilities |
+| `api/main.py` | FastAPI backend serving simulation data |
+| `vercel.json` | Vercel deployment configuration |
+| `requirements.txt` | Python dependencies for deployment |
 
 ---
 
@@ -236,14 +256,17 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 130 tests pass** with 0 warnings
+- **All 208 tests pass** with 0 warnings
 - Package installs via `pip install -e ".[dev]"`
 - Python 3.11+ required
-- Virtual environment at `.venv/`
 - Simulation builds, runs, and produces metrics
-- Accounting invariants verified after every step
+- Accounting invariants verified after every step (including inventory asset)
 - Seeded reproducibility confirmed
 - Supply and demand shocks produce expected directional responses
+- Modern Next.js dashboard at `web/` (React + TypeScript + Tailwind CSS)
+- FastAPI backend at `api/` for serving simulation data
+- Vercel deployment configuration ready (`vercel.json`)
+- Legacy Streamlit dashboard still functional (`dashboard.py`)
 
 ---
 
@@ -337,3 +360,57 @@ econosim/
 - Fixed household ID format (`hh_0000` not `hh_000`)
 - Added 44 new RL tests (130 total, all passing)
 - Installed pettingzoo
+
+### Session 6 — 2026-03-15 (Phase 5: Modern UI + Bug Fixes)
+
+**Next.js Dashboard (`web/`)**:
+- Created Next.js 16 + TypeScript + Tailwind CSS v4 frontend
+- Dark theme with gradient accents, smooth animations (fadeIn, pulse-glow, shimmer)
+- 6 KPI cards with period-over-period trend deltas and directional arrows
+- 5 tabbed dashboard views:
+  - **Macro**: GDP, price level, unemployment, inflation, Gini, GDP growth
+  - **Labor & Production**: employment, vacancies, wages, production, inventory, consumption
+  - **Government**: fiscal KPI cards, fiscal flows, budget balance, deposits, sovereign money creation
+  - **Money & Credit**: stacked deposit distribution, sector deposits, loans, bank equity, CAR, velocity
+  - **Data**: column-selectable data table, summary statistics, CSV/JSON export
+- Interactive sidebar with collapsible parameter sections (Simulation, Households, Firms, Government, Banking)
+- Recharts-based charts with CI band support for batch runs
+- Responsive layout optimized for desktop and tablet
+
+**FastAPI Backend (`api/`)**:
+- RESTful API serving simulation results
+- `POST /api/simulate` — configurable simulation runs
+- `GET /api/defaults` — default config values
+- `GET /api/health` — health check endpoint
+- CORS middleware for cross-origin frontend access
+
+**Vercel Deployment**:
+- `vercel.json` with Python + Next.js build configuration
+- `requirements.txt` for Python serverless functions
+- `.env.local` for development API URL
+
+**Bug Fixes**:
+- **CRITICAL**: Fixed `inventory_asset` balance sheet account — was created with 0.0 balance and never updated. Now:
+  - Initial value set to `initial_inventory * unit_cost` at firm creation
+  - `_sync_inventory_asset()` method adjusts balance after production and sales
+  - Called after `produce()`, goods market clearing, and government purchases
+  - Firm equity now correctly includes inventory value
+- **Fixed delinquency threshold**: Was marking loans delinquent after just 1 missed payment. Now uses `max(1, default_threshold_periods // 2)` before flagging delinquency
+- Balance sheet invariant now holds including inventory asset tracking
+
+**Test Coverage Expansion** (130 → 208 tests):
+- Added `tests/test_agents/test_household.py` — 14 tests (init, decisions, period state, observations)
+- Added `tests/test_agents/test_firm.py` — 20 tests (init, decisions, production, inventory sync, borrowing)
+- Added `tests/test_agents/test_government.py` — 12 tests (init, tax, transfers, sovereign money, budget)
+- Added `tests/test_agents/test_bank.py` — 10 tests (init, lending, defaults, observations)
+- Added `tests/test_markets/test_labor.py` — 9 tests (matching, wages, balance sheets, edge cases)
+- Added `tests/test_markets/test_goods.py` — 7 tests (sales, inventory, deposits, balance sheets)
+- Added `tests/test_markets/test_credit.py` — 4 tests (applications, loans, balance sheets)
+- All 208 tests passing
+
+**New Files Added**:
+- `web/` — Complete Next.js frontend (pages, components, types, API client)
+- `api/main.py` — FastAPI backend
+- `vercel.json` — Vercel deployment config
+- `requirements.txt` — Python dependencies for deployment
+- 7 new test files in `tests/test_agents/` and `tests/test_markets/`

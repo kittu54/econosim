@@ -181,7 +181,7 @@ class Bank(BaseAgent):
                 payments[loan.borrower_id] = payments.get(loan.borrower_id, 0.0) + actual_payment
             else:
                 loan.periods_delinquent += 1
-                if loan.periods_delinquent >= 1:
+                if loan.periods_delinquent >= max(1, self.default_threshold_periods // 2):
                     loan.mark_delinquent()
 
         return payments

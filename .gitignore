@@ -24,7 +24,12 @@ outputs/
 *.csv
 *.json
 !scenarios/*.yaml
+!scenarios/*.json
 !pyproject.toml
+!vercel.json
+!web/package.json
+!web/package-lock.json
+!web/tsconfig.json
 
 # Logs
 *.log
@@ -36,3 +41,11 @@ outputs/
 tb_logs/
 **/best_model/
 **/eval_logs/
+
+# Next.js
+web/.next/
+web/out/
+web/node_modules/
+
+# Vercel
+.vercel/
