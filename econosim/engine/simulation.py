@@ -257,6 +257,10 @@ def step(state: SimulationState) -> dict[str, Any]:
         rng=state.rng,
     )
 
+    # Sync inventory asset on balance sheet after goods market sales
+    for firm in state.firms:
+        firm.sync_after_sales()
+
     # ── 6. Taxes and transfers ───────────────────────────────────
     for hh in state.households:
         if hh.wage_income > 0:
@@ -307,6 +311,10 @@ def step(state: SimulationState) -> dict[str, Any]:
                 if actual_spend > 0.01:
                     state.government.purchase_goods(period, firm.agent_id, actual_spend)
                     firm.revenue = round_money(firm.revenue + actual_spend)
+
+    # Sync inventory asset after government purchases
+    for firm in state.firms:
+        firm.sync_after_sales()
 
     # ── 7. Debt service / delinquency / default ──────────────────
     state.bank.process_loan_payments(period)

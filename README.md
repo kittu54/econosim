@@ -7,16 +7,25 @@ Households, firms, banks, and government interact in a closed economy. Macroecon
 ## Quick Start
 
 ```bash
-# Create virtual environment and install
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+# Install Python package
+pip install -e ".[dev,rl]"
 
-# Run tests
-pytest
+# Run modern dashboard (Next.js)
+cd web && npm install && npm run dev    # http://localhost:3000
 
-# Run a simulation
-python -m econosim.experiments.runner
+# Run API backend (required for dashboard)
+pip install fastapi uvicorn
+python -m uvicorn api.main:app --reload  # http://localhost:8000
+
+# Run legacy Streamlit dashboard
+pip install -e ".[viz]"
+streamlit run dashboard.py               # http://localhost:8501
+
+# Run tests (208 tests)
+pytest tests/
+
+# Run a simulation from CLI
+python -m econosim --scenario scenarios/baseline.yaml --periods 120
 ```
 
 ## Architecture
@@ -30,17 +39,20 @@ python -m econosim.experiments.runner
 | **Metrics** | `collector` | GDP, unemployment, inflation, Gini, credit metrics |
 | **Config** | `schema` | Pydantic configuration with YAML scenario support |
 | **Experiments** | `runner` | Single/batch experiment execution |
-| **RL** | `env` | Gymnasium-compatible interface scaffold |
+| **RL** | `firm_env`, `household_env`, `government_env`, `bank_env`, `multi_agent_env` | Gymnasium + PettingZoo environments |
+| **API** | `api/main.py` | FastAPI backend for serving simulation data |
+| **Frontend** | `web/` | Next.js + React + TypeScript + Tailwind CSS dashboard |
 
-## MVP Scope
+## Dashboard
 
-- 100 households, 5 firms, 1 bank, 1 government
-- 1 consumption good, 1 labor type
-- Monthly time steps
-- Rule-based agent decisions
-- Supply, demand, credit, and fiscal shocks
-- Seeded reproducibility
-- Full accounting invariant enforcement
+The modern dashboard provides:
+
+- **6 KPI cards** with trend deltas (GDP, Unemployment, Price, Wage, Gini, Loans)
+- **5 tabbed views**: Macro, Labor & Production, Government, Money & Credit, Data
+- **Interactive controls** for all agent and market parameters
+- **Recharts-based charts** with CI bands for batch runs
+- **Data export** to CSV and JSON
+- **Dark theme** with gradient accents and animations
 
 ## Key Design Principles
 
@@ -48,34 +60,31 @@ python -m econosim.experiments.runner
 2. **Endogenous money**: Bank lending creates deposits; repayment destroys them.
 3. **No framework lock-in**: Domain logic is pure Python, decoupled from any simulation framework.
 4. **Reproducibility**: Seeded RNG produces identical runs.
-5. **RL-ready**: Designed for future Gymnasium/PettingZoo integration.
+5. **RL-ready**: Full Gymnasium/PettingZoo environments for all agent types.
 
-## Running Scenarios
+## RL Environments
 
-```python
-from econosim.config import SimulationConfig
-from econosim.engine import run_simulation
+| Environment | Observation | Action | Reward Modes |
+|-------------|------------|--------|--------------|
+| `EconoSim-Firm-v0` | 14-dim (firm state + macro) | 3-dim (price, wage, vacancies) | profit, gdp, balanced |
+| `EconoSim-Household-v0` | 12-dim | 2-dim (consumption, reservation wage) | utility, consumption, balanced |
+| `EconoSim-Government-v0` | 12-dim | 3-dim (tax, transfers, spending) | welfare, gdp, employment, balanced |
+| `EconoSim-Bank-v0` | 12-dim | 2-dim (interest rate, CAR) | profit, stability, growth |
 
-# Default baseline
-state = run_simulation(SimulationConfig())
+## Deployment
 
-# From YAML
-from econosim.experiments import load_config_from_yaml, run_experiment
-config = load_config_from_yaml("scenarios/supply_shock.yaml")
-result = run_experiment(config, output_dir="outputs")
-```
-
-## Tests
+Configured for **Vercel** free-tier deployment:
 
 ```bash
-pytest tests/ -v          # all tests
-pytest tests/test_core/   # accounting, contracts, goods
-pytest tests/test_integration/  # full simulation
+# Deploy to Vercel
+vercel
 ```
 
 ## Project Status
 
-See [PROJECT_LOG.md](PROJECT_LOG.md) for detailed progress, architecture decisions, and changelog.
+- **Phases 0-3b**: Complete (core sim, RL environments, 208 tests)
+- **Phase 5**: Modern Next.js UI + FastAPI backend deployed
+- See [PHASES.md](PHASES.md) for roadmap and [PROJECT_LOG.md](PROJECT_LOG.md) for detailed changelog.
 
 ## License
 

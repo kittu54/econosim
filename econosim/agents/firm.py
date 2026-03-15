@@ -65,10 +65,11 @@ class Firm(BaseAgent):
         )
 
     def _setup_accounts(self) -> None:
+        initial_inv_value = round_money(self._initial_inventory * self.price * 0.5)
         self.balance_sheet.add_account("deposits", AccountType.ASSET, self._initial_deposits)
-        self.balance_sheet.add_account("inventory_asset", AccountType.ASSET, 0.0)
+        self.balance_sheet.add_account("inventory_asset", AccountType.ASSET, initial_inv_value)
         self.balance_sheet.add_account("loans_payable", AccountType.LIABILITY, 0.0)
-        self.balance_sheet.add_account("equity", AccountType.EQUITY, self._initial_deposits)
+        self.balance_sheet.add_account("equity", AccountType.EQUITY, self._initial_deposits + initial_inv_value)
 
     def reset_period_state(self) -> None:
         self.vacancies_filled = 0
@@ -146,13 +147,33 @@ class Firm(BaseAgent):
 
         Linear production function: output = workers * labor_productivity.
         Cost of production = wage bill (already paid).
+        Updates inventory_asset on the balance sheet to reflect new inventory value.
         """
         num_workers = len(self.workers)
         output = round_money(num_workers * self.labor_productivity)
         self.production = output
         if output > 0:
             self.inventory.produce(output, self.wage_bill)
+        self._sync_inventory_asset()
         return output
+
+    def _sync_inventory_asset(self) -> None:
+        """Update the inventory_asset balance sheet account to match actual inventory value."""
+        inv_account = self.balance_sheet.get_account("inventory_asset")
+        equity_account = self.balance_sheet.get_account("equity")
+        actual_value = self.inventory.total_value
+        diff = round_money(actual_value - inv_account.balance)
+        if abs(diff) > 0.001:
+            if diff > 0:
+                inv_account.debit(diff)
+                equity_account.credit(diff)
+            else:
+                inv_account.credit(-diff)
+                equity_account.debit(-diff)
+
+    def sync_after_sales(self) -> None:
+        """Called after goods market clearing to update inventory on balance sheet."""
+        self._sync_inventory_asset()
 
     @property
     def total_debt(self) -> float:

@@ -160,42 +160,71 @@
 
 ---
 
-## Phase 5 — Platform Features 🚧
+## Phase 5 — Platform Features ✅ (Partial)
 
-**Status**: Not started
+**Status**: In progress
 
-**Planned work**:
-- **Enhanced dashboard**: Scenario comparison, parameter sweep UI
-- **API layer**: FastAPI backend for programmatic access
+**What was built**:
+- **Modern Next.js dashboard**: React + TypeScript + Tailwind CSS frontend (`web/`)
+  - Dark theme with gradient accents, animated transitions
+  - 6 KPI cards with trend deltas (GDP, Unemployment, Price, Wage, Gini, Loans)
+  - 5 tabbed views: Macro, Labor & Production, Government, Money & Credit, Data
+  - Interactive recharts-based line/area/stacked charts with CI bands
+  - Full parameter control sidebar with collapsible sections
+  - Column-selectable data table with CSV/JSON export
+  - Responsive layout, optimized for desktop and tablet
+- **FastAPI backend** (`api/main.py`): RESTful API serving simulation data
+  - `POST /api/simulate` — run simulation with custom config
+  - `GET /api/defaults` — default config
+  - `GET /api/health` — health check
+  - CORS-enabled for cross-origin frontend
+- **Vercel deployment config** (`vercel.json`): ready for free deployment
+- **Bug fixes**:
+  - Fixed `inventory_asset` balance sheet account (was never updated, now syncs after production and sales)
+  - Fixed delinquency threshold (was marking loans delinquent after 1 missed payment instead of using configurable threshold)
+  - Firm initial equity now includes inventory value
+- **Test coverage expanded**: Agent and market tests added (78 new tests)
+
+**Remaining work**:
 - **Data persistence**: Database storage for long runs
 - **Collaboration**: Shared scenarios, result sharing
-- **Documentation**: User guides, tutorials, API docs
+- **Scenario comparison UI**: Multi-run overlay charts
 
 **Key challenges**:
 - Scalability for concurrent users
 - Data model design for persistence
-- Security for multi-tenant scenarios
 
 ---
 
 ## Current Status Summary
 
-- **Phases 0-3**: ✅ Complete
-- **Tests**: 130 passing, 0 warnings
-- **Dashboard**: Live at `http://localhost:8501`
+- **Phases 0-3b**: ✅ Complete
+- **Phase 3c**: 🚧 Environments ready, training not yet run
+- **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
+- **Tests**: 208 passing, 0 warnings
+- **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
+- **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
+- **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
 - **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training, compare agent vs baseline
+- **Next immediate steps**: Run RL training, deploy to Vercel, add scenario comparison
 
 ---
 
 ## Quick Start Commands
 
 ```bash
-# Install
+# Install Python package
 pip install -e ".[dev,rl]"
 
-# Run dashboard
-streamlit run dashboard.py
+# Run modern Next.js dashboard
+cd web && npm install && npm run dev  # http://localhost:3000
+
+# Run FastAPI backend (needed for dashboard)
+pip install fastapi uvicorn
+cd api && uvicorn main:app --reload  # http://localhost:8000
+
+# Run legacy Streamlit dashboard
+streamlit run dashboard.py  # http://localhost:8501
 
 # Run simulation CLI
 python -m econosim --scenario scenarios/baseline.yaml --periods 120
@@ -213,10 +242,17 @@ pytest tests/
 
 ```
 Core Accounting → Agents → Markets → Engine → Metrics → Config → Experiments → RL
+                                                          ↓
+                                              FastAPI Backend (api/)
+                                                          ↓
+                                              Next.js Frontend (web/)
 ```
 
 **Key files**:
-- `dashboard.py` — Streamlit UI
+- `web/` — Next.js + React + Tailwind CSS frontend
+- `api/main.py` — FastAPI backend
+- `dashboard.py` — Streamlit UI (legacy)
 - `scripts/train_firm_rl.py` — RL training
 - `econosim/rl/firm_env.py` — Gymnasium environment
 - `PROJECT_LOG.md` — Detailed implementation log
+- `vercel.json` — Vercel deployment config
