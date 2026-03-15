@@ -15,8 +15,8 @@ export default function GovernmentTab({ data, aggregate }: Props) {
   const final = data[data.length - 1];
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard
           label="Tax Revenue"
           value={fmtNumber(final?.govt_tax_revenue)}
@@ -56,18 +56,16 @@ export default function GovernmentTab({ data, aggregate }: Props) {
             { key: "govt_spending", label: "Spending", color: "blue" },
           ]}
           title="Fiscal Flows"
+          subtitle="Government revenue and expenditures"
         />
         <MetricChart
           data={data}
           aggregate={aggregate}
           metrics={[
-            {
-              key: "govt_budget_balance",
-              label: "Budget Balance",
-              color: "rose",
-            },
+            { key: "govt_budget_balance", label: "Budget Balance", color: "rose" },
           ]}
           title="Budget Balance (T - G - Tr)"
+          subtitle="Positive = surplus, Negative = deficit"
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -78,23 +76,17 @@ export default function GovernmentTab({ data, aggregate }: Props) {
             { key: "govt_deposits", label: "Deposits", color: "indigo" },
           ]}
           title="Government Deposits"
+          subtitle="Government bank account balance"
         />
         <MetricChart
           data={data}
           aggregate={aggregate}
           metrics={[
-            {
-              key: "govt_money_created",
-              label: "Per-period",
-              color: "amber",
-            },
-            {
-              key: "govt_cumulative_money_created",
-              label: "Cumulative",
-              color: "rose",
-            },
+            { key: "govt_money_created", label: "Per-period", color: "amber" },
+            { key: "govt_cumulative_money_created", label: "Cumulative", color: "rose" },
           ]}
           title="Sovereign Money Creation"
+          subtitle="New money created to ensure solvency (MMT)"
         />
       </div>
     </div>

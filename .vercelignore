@@ -1,0 +1,7 @@
+pyproject.toml
+tests/
+scripts/
+tb_logs/
+.venv/
+__pycache__/
+*.egg-info/

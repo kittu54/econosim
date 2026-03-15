@@ -10,19 +10,21 @@ interface Props {
 
 export default function MacroTab({ data, aggregate }: Props) {
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <MetricChart
           data={data}
           aggregate={aggregate}
           metrics={[{ key: "gdp", label: "GDP", color: "blue" }]}
           title="Gross Domestic Product"
+          subtitle="Total output of goods and services"
         />
         <MetricChart
           data={data}
           aggregate={aggregate}
           metrics={[{ key: "avg_price", label: "Price Level", color: "amber" }]}
           title="Average Price"
+          subtitle="Weighted average goods price"
           yAxisFormat="decimal"
         />
       </div>
@@ -34,6 +36,7 @@ export default function MacroTab({ data, aggregate }: Props) {
             { key: "unemployment_rate", label: "Unemployment", color: "rose" },
           ]}
           title="Unemployment Rate"
+          subtitle="Share of labor force without jobs"
           yAxisFormat="percent"
         />
         <MetricChart
@@ -43,6 +46,7 @@ export default function MacroTab({ data, aggregate }: Props) {
             { key: "inflation_rate", label: "Inflation", color: "emerald" },
           ]}
           title="Inflation Rate"
+          subtitle="Period-over-period price change"
           yAxisFormat="percent"
         />
       </div>
@@ -54,6 +58,7 @@ export default function MacroTab({ data, aggregate }: Props) {
             { key: "gini_deposits", label: "Gini", color: "purple" },
           ]}
           title="Wealth Inequality (Gini)"
+          subtitle="0 = perfect equality, 1 = maximum inequality"
           yAxisFormat="decimal"
         />
         <MetricChart
@@ -63,6 +68,7 @@ export default function MacroTab({ data, aggregate }: Props) {
             { key: "gdp_growth", label: "GDP Growth", color: "teal" },
           ]}
           title="GDP Growth Rate"
+          subtitle="Period-over-period GDP change"
           yAxisFormat="percent"
         />
       </div>

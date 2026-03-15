@@ -10,7 +10,7 @@ interface Props {
 
 export default function MoneyTab({ data, aggregate }: Props) {
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <MetricChart
           data={data}
@@ -20,6 +20,7 @@ export default function MoneyTab({ data, aggregate }: Props) {
             { key: "govt_deposits", label: "Government", color: "emerald" },
           ]}
           title="Deposit Distribution"
+          subtitle="Stacked view of money holdings by sector"
           stacked
         />
         <MetricChart
@@ -30,6 +31,7 @@ export default function MoneyTab({ data, aggregate }: Props) {
             { key: "total_firm_deposits", label: "Firm", color: "amber" },
           ]}
           title="Deposits by Sector"
+          subtitle="Private sector money balances"
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -37,13 +39,10 @@ export default function MoneyTab({ data, aggregate }: Props) {
           data={data}
           aggregate={aggregate}
           metrics={[
-            {
-              key: "total_loans_outstanding",
-              label: "Loans",
-              color: "rose",
-            },
+            { key: "total_loans_outstanding", label: "Loans", color: "rose" },
           ]}
           title="Total Loans Outstanding"
+          subtitle="Bank credit to firms"
         />
         <MetricChart
           data={data}
@@ -52,6 +51,7 @@ export default function MoneyTab({ data, aggregate }: Props) {
             { key: "bank_equity", label: "Bank Equity", color: "emerald" },
           ]}
           title="Bank Equity"
+          subtitle="Bank net worth (Assets - Liabilities)"
         />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -62,6 +62,7 @@ export default function MoneyTab({ data, aggregate }: Props) {
             { key: "bank_capital_ratio", label: "CAR", color: "indigo" },
           ]}
           title="Bank Capital Adequacy Ratio"
+          subtitle="Equity / Risk-weighted assets"
           yAxisFormat="percent"
         />
         <MetricChart
@@ -71,6 +72,7 @@ export default function MoneyTab({ data, aggregate }: Props) {
             { key: "velocity", label: "Velocity", color: "purple" },
           ]}
           title="Velocity of Money"
+          subtitle="GDP / Money supply"
           yAxisFormat="decimal"
         />
       </div>

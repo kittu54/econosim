@@ -11,6 +11,13 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  RotateCcw,
+  Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Zap,
+  TrendingDown,
+  Shield,
 } from "lucide-react";
 import clsx from "clsx";
 import { SimulationRequest, DEFAULT_CONFIG } from "@/lib/types";
@@ -18,6 +25,8 @@ import { SimulationRequest, DEFAULT_CONFIG } from "@/lib/types";
 interface SidebarProps {
   onRun: (config: SimulationRequest) => void;
   isRunning: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 interface NumberInputProps {
@@ -41,7 +50,7 @@ function NumberInput({
 }: NumberInputProps) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <label className="text-xs text-muted whitespace-nowrap">{label}</label>
+      <label className="text-[11px] text-muted whitespace-nowrap">{label}</label>
       <div className="flex items-center gap-1">
         <input
           type="number"
@@ -50,10 +59,10 @@ function NumberInput({
           min={min}
           max={max}
           step={step}
-          className="w-20 rounded-md border border-border-2 bg-surface-2 px-2 py-1 text-xs text-foreground text-right
-                     focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+          className="w-20 rounded-lg border border-border-2/60 bg-surface-2/80 px-2.5 py-1.5 text-xs text-foreground text-right
+                     focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all"
         />
-        {suffix && <span className="text-xs text-muted">{suffix}</span>}
+        {suffix && <span className="text-[10px] text-muted-2">{suffix}</span>}
       </div>
     </div>
   );
@@ -80,10 +89,12 @@ function SliderInput({
 }: SliderInputProps) {
   const display = format ? format(value) : value.toFixed(2);
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs text-muted">{label}</label>
-        <span className="text-xs font-medium text-foreground">{display}</span>
+        <label className="text-[11px] text-muted">{label}</label>
+        <span className="text-[11px] font-medium text-accent tabular-nums">
+          {display}
+        </span>
       </div>
       <input
         type="range"
@@ -92,10 +103,7 @@ function SliderInput({
         min={min}
         max={max}
         step={step}
-        className="w-full h-1.5 rounded-full appearance-none bg-border-2 cursor-pointer
-                   accent-accent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3
-                   [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
-                   [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-md"
+        className="w-full"
       />
     </div>
   );
@@ -111,26 +119,93 @@ interface SectionProps {
 function Section({ title, icon, children, defaultOpen = false }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-border/50">
+    <div className="border-b border-border/40">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full px-4 py-3 text-sm font-medium text-foreground
-                   hover:bg-surface-2/50 transition-colors"
+        className="flex items-center gap-2.5 w-full px-4 py-3 text-xs font-semibold text-foreground
+                   hover:bg-surface-2/40 transition-all duration-200 uppercase tracking-wider"
       >
-        {icon}
+        <span className="opacity-70">{icon}</span>
         <span className="flex-1 text-left">{title}</span>
-        {open ? (
-          <ChevronDown className="w-4 h-4 text-muted" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted" />
-        )}
+        <span className="text-muted-2 transition-transform duration-200">
+          {open ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
+          )}
+        </span>
       </button>
-      {open && <div className="px-4 pb-4 space-y-3">{children}</div>}
+      <div
+        className={clsx(
+          "overflow-hidden transition-all duration-300",
+          open ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        <div className="px-4 pb-4 space-y-3">{children}</div>
+      </div>
     </div>
   );
 }
 
-export default function Sidebar({ onRun, isRunning }: SidebarProps) {
+const PRESETS: {
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+  config: Partial<SimulationRequest>;
+}[] = [
+  {
+    name: "Baseline",
+    icon: <Sparkles className="w-3.5 h-3.5" />,
+    description: "Default balanced economy",
+    config: { ...DEFAULT_CONFIG },
+  },
+  {
+    name: "High Growth",
+    icon: <Zap className="w-3.5 h-3.5" />,
+    description: "Expansionary fiscal policy",
+    config: {
+      government: {
+        ...DEFAULT_CONFIG.government,
+        spending_per_period: 5000,
+        income_tax_rate: 0.1,
+      },
+    },
+  },
+  {
+    name: "Recession",
+    icon: <TrendingDown className="w-3.5 h-3.5" />,
+    description: "Contractionary scenario",
+    config: {
+      government: {
+        ...DEFAULT_CONFIG.government,
+        spending_per_period: 500,
+        income_tax_rate: 0.35,
+      },
+      household: {
+        ...DEFAULT_CONFIG.household,
+        consumption_propensity: 0.5,
+      },
+    },
+  },
+  {
+    name: "Tight Money",
+    icon: <Shield className="w-3.5 h-3.5" />,
+    description: "High rates, strict capital rules",
+    config: {
+      bank: {
+        base_interest_rate: 0.03,
+        capital_adequacy_ratio: 0.15,
+      },
+    },
+  },
+];
+
+export default function Sidebar({
+  onRun,
+  isRunning,
+  collapsed = false,
+  onToggle,
+}: SidebarProps) {
   const [config, setConfig] = useState<SimulationRequest>({
     ...DEFAULT_CONFIG,
   });
@@ -150,20 +225,104 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
   const updateBank = (key: string, value: number) =>
     setConfig((c) => ({ ...c, bank: { ...c.bank, [key]: value } }));
 
+  const applyPreset = (preset: (typeof PRESETS)[number]) => {
+    setConfig((c) => ({
+      ...c,
+      ...preset.config,
+      household: { ...c.household, ...preset.config.household },
+      firm: { ...c.firm, ...preset.config.firm },
+      government: { ...c.government, ...preset.config.government },
+      bank: { ...c.bank, ...preset.config.bank },
+    }));
+  };
+
+  if (collapsed) {
+    return (
+      <aside className="w-14 min-h-screen bg-surface/80 backdrop-blur-sm border-r border-border/60 flex flex-col items-center py-4 gap-3">
+        <button
+          onClick={onToggle}
+          className="p-2 rounded-lg hover:bg-surface-2 text-muted hover:text-foreground transition-all"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </button>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent-2 flex items-center justify-center">
+          <Landmark className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1" />
+        <button
+          onClick={() => onRun(config)}
+          disabled={isRunning}
+          className="p-2.5 rounded-xl bg-accent text-white hover:bg-accent/90 disabled:opacity-40 transition-all"
+          title="Run simulation"
+        >
+          {isRunning ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-72 min-h-screen bg-surface border-r border-border flex flex-col">
+    <aside className="w-72 min-h-screen bg-surface/80 backdrop-blur-sm border-r border-border/60 flex flex-col relative z-10">
       {/* Header */}
-      <div className="px-5 py-5 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent-2 flex items-center justify-center">
-            <Landmark className="w-4 h-4 text-white" />
+      <div className="px-4 py-4 border-b border-border/40">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent-2 flex items-center justify-center shadow-lg shadow-accent/20">
+              <Landmark className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h1 className="text-sm font-bold tracking-tight">EconoSim</h1>
+              <p className="text-[9px] text-muted font-medium uppercase tracking-[0.15em]">
+                Economic Simulation
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold tracking-tight">EconoSim</h1>
-            <p className="text-[10px] text-muted font-medium uppercase tracking-widest">
-              Economic Simulation
-            </p>
-          </div>
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="p-1.5 rounded-md hover:bg-surface-2 text-muted hover:text-foreground transition-all"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Scenario Presets */}
+      <div className="px-4 py-3 border-b border-border/40">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+            Presets
+          </span>
+          <button
+            onClick={() => setConfig({ ...DEFAULT_CONFIG })}
+            className="flex items-center gap-1 text-[10px] text-muted hover:text-accent transition-colors"
+            title="Reset to defaults"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {PRESETS.map((p) => (
+            <button
+              key={p.name}
+              onClick={() => applyPreset(p)}
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[10px] font-medium
+                         border border-border/60 bg-surface-2/40 text-muted
+                         hover:border-accent/40 hover:text-accent hover:bg-accent/5
+                         transition-all duration-200"
+              title={p.description}
+            >
+              {p.icon}
+              {p.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -171,7 +330,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
       <div className="flex-1 overflow-y-auto">
         <Section
           title="Simulation"
-          icon={<Settings className="w-4 h-4 text-accent" />}
+          icon={<Settings className="w-3.5 h-3.5 text-accent" />}
           defaultOpen={true}
         >
           <NumberInput
@@ -200,7 +359,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
 
         <Section
           title="Households"
-          icon={<Users className="w-4 h-4 text-emerald-400" />}
+          icon={<Users className="w-3.5 h-3.5 text-emerald-400" />}
         >
           <NumberInput
             label="Count"
@@ -246,7 +405,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
 
         <Section
           title="Firms"
-          icon={<Factory className="w-4 h-4 text-amber-400" />}
+          icon={<Factory className="w-3.5 h-3.5 text-amber-400" />}
         >
           <NumberInput
             label="Count"
@@ -305,7 +464,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
 
         <Section
           title="Government"
-          icon={<Landmark className="w-4 h-4 text-indigo-400" />}
+          icon={<Landmark className="w-3.5 h-3.5 text-indigo-400" />}
         >
           <SliderInput
             label="Income tax rate"
@@ -344,7 +503,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
 
         <Section
           title="Banking"
-          icon={<Building2 className="w-4 h-4 text-cyan-400" />}
+          icon={<Building2 className="w-3.5 h-3.5 text-cyan-400" />}
         >
           <SliderInput
             label="Base interest rate"
@@ -368,7 +527,7 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
       </div>
 
       {/* Run button */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border/40">
         <button
           onClick={() => onRun(config)}
           disabled={isRunning}
@@ -377,13 +536,13 @@ export default function Sidebar({ onRun, isRunning }: SidebarProps) {
             "text-sm font-semibold transition-all duration-200",
             isRunning
               ? "bg-surface-2 text-muted cursor-not-allowed"
-              : "bg-gradient-to-r from-accent to-accent-2 text-white hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98]"
+              : "bg-gradient-to-r from-accent to-accent-2 text-white hover:shadow-lg hover:shadow-accent/30 active:scale-[0.98] glow-blue-sm"
           )}
         >
           {isRunning ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Running...
+              Simulating...
             </>
           ) : (
             <>

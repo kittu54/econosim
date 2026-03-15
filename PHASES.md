@@ -166,23 +166,27 @@
 
 **What was built**:
 - **Modern Next.js dashboard**: React + TypeScript + Tailwind CSS frontend (`web/`)
-  - Dark theme with gradient accents, animated transitions
-  - 6 KPI cards with trend deltas (GDP, Unemployment, Price, Wage, Gini, Loans)
+  - Dark theme with glass morphism, gradient accents, animated transitions
+  - 6 KPI cards with sparkline mini-charts and trend deltas
   - 5 tabbed views: Macro, Labor & Production, Government, Money & Credit, Data
-  - Interactive recharts-based line/area/stacked charts with CI bands
-  - Full parameter control sidebar with collapsible sections
+  - Interactive recharts-based charts with gradient fills, legends, and CI bands
+  - Parameter control sidebar with scenario presets (Baseline, High Growth, Recession, Tight Money)
+  - Collapsible sidebar with reset-to-defaults functionality
+  - Loading skeleton states with shimmer animations
+  - Animated welcome screen with feature cards
   - Column-selectable data table with CSV/JSON export
-  - Responsive layout, optimized for desktop and tablet
+  - Responsive layout with staggered animations
 - **FastAPI backend** (`api/main.py`): RESTful API serving simulation data
   - `POST /api/simulate` — run simulation with custom config
   - `GET /api/defaults` — default config
   - `GET /api/health` — health check
   - CORS-enabled for cross-origin frontend
-- **Vercel deployment config** (`vercel.json`): ready for free deployment
+- **Vercel deployment config**: `vercel.json` + `api/requirements.txt` for free deployment
 - **Bug fixes**:
   - Fixed `inventory_asset` balance sheet account (was never updated, now syncs after production and sales)
   - Fixed delinquency threshold (was marking loans delinquent after 1 missed payment instead of using configurable threshold)
   - Firm initial equity now includes inventory value
+  - Fixed Vercel deployment: requirements.txt now in api/ directory where @vercel/python expects it
 - **Test coverage expanded**: Agent and market tests added (78 new tests)
 
 **Remaining work**:
