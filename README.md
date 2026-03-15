@@ -47,12 +47,13 @@ python -m econosim --scenario scenarios/baseline.yaml --periods 120
 
 The modern dashboard provides:
 
-- **6 KPI cards** with trend deltas (GDP, Unemployment, Price, Wage, Gini, Loans)
+- **6 KPI cards** with sparkline mini-charts and trend deltas
 - **5 tabbed views**: Macro, Labor & Production, Government, Money & Credit, Data
-- **Interactive controls** for all agent and market parameters
-- **Recharts-based charts** with CI bands for batch runs
+- **Scenario presets**: Baseline, High Growth, Recession, Tight Money
+- **Interactive controls** for all agent and market parameters with collapsible sidebar
+- **Recharts-based charts** with gradient fills, legends, and CI bands for batch runs
 - **Data export** to CSV and JSON
-- **Dark theme** with gradient accents and animations
+- **Glass morphism dark theme** with staggered animations and loading skeletons
 
 ## Key Design Principles
 

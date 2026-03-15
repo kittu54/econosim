@@ -414,3 +414,68 @@ econosim/
 - `vercel.json` — Vercel deployment config
 - `requirements.txt` — Python dependencies for deployment
 - 7 new test files in `tests/test_agents/` and `tests/test_markets/`
+
+---
+
+### Session 7 — Radical UI Overhaul & Deployment Fix
+
+**Vercel Deployment Fix**:
+- Created `api/requirements.txt` — Vercel's `@vercel/python` builder looks for requirements relative to the handler file, not the project root
+- Updated `vercel.json` with `maxLambdaSize: "50mb"` to accommodate numpy/pandas
+- The `sys.path.insert` approach in `api/main.py` works because Vercel deploys all project files
+
+**Radical UI Redesign** (all files in `web/src/`):
+
+*Global Styles (`app/globals.css`)*:
+- New color palette: deeper background (`#06080d`), richer surface colors, three accent colors (blue, violet, cyan)
+- Subtle grid background pattern with radial gradient
+- Glass morphism utilities (`.glass`, `.glass-strong`) with backdrop blur
+- Blue glow effects (`.glow-blue`, `.glow-blue-sm`)
+- New animations: `fadeInScale`, `slideInRight`, `float`, `gradient-shift`, `count-up`
+- Staggered animation delays for child elements (`.stagger-children`)
+- Custom range input styling with glowing thumb
+- Chart container with gradient border effect (`.chart-container`)
+
+*KPI Cards (`components/KpiCard.tsx`)*:
+- Added inline SVG sparkline mini-charts showing metric trend over time
+- Glass morphism background with backdrop blur
+- Smoother hover transitions with group hover effects
+- Count-up animation on values
+- Accepts `sparklineData` and `sparklineColor` props
+
+*Sidebar (`components/controls/Sidebar.tsx`)*:
+- **Scenario presets**: Baseline, High Growth, Recession, Tight Money — one-click configs
+- **Reset button** to restore defaults
+- **Collapsible mode**: sidebar collapses to thin icon strip
+- Animated section expand/collapse with max-height transitions
+- Slider values displayed in accent color with tabular-nums
+- Glass morphism background
+
+*Charts (`components/charts/MetricChart.tsx`)*:
+- Gradient fills for area charts (defined via SVG `<linearGradient>`)
+- Legends enabled for multi-metric charts
+- Custom tooltip with glass morphism styling and drop shadow
+- Active dot indicators on hover
+- Vertical grid lines removed for cleaner look
+- Chart wrapper component with optional subtitle
+- Subtle gradient border via CSS pseudo-element
+
+*Main Page (`app/page.tsx`)*:
+- **Welcome screen redesign**: Animated floating hero icon, 8 feature cards in 4-column grid, staggered fade-in animations, architecture info bar (208 tests, Next.js+FastAPI, Gymnasium RL, SFC Accounting)
+- **Loading skeleton**: Shows shimmer skeleton when simulation is running (first run)
+- **Run indicator**: Shows run count, period count, and batch/single mode
+- **Sparkline data**: Extracts sampled values for each KPI card's sparkline
+- Tab content wrapped in animation container for smooth transitions
+
+*Tab Components* (all tabs updated):
+- Added `subtitle` descriptions to all charts explaining what each metric shows
+- Consistent spacing and visual hierarchy
+
+*New Components*:
+- `components/LoadingSkeleton.tsx` — KPI, chart, and full dashboard skeleton states
+
+**Code Quality**:
+- Full codebase audit: 0 bugs found, 0 TODOs, 0 FIXMEs, 0 incomplete implementations
+- All 208 tests passing
+- Next.js build compiles successfully
+- All accounting invariants verified
