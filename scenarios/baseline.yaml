@@ -1,0 +1,49 @@
+name: baseline
+description: "Baseline MVP scenario: 100 households, 5 firms, 1 bank, 1 government, 120 monthly periods"
+num_periods: 120
+seed: 42
+
+household:
+  count: 100
+  initial_deposits: 1000.0
+  consumption_propensity: 0.8
+  wealth_propensity: 0.4
+  labor_participation_rate: 0.95
+  reservation_wage: 50.0
+
+firm:
+  count: 5
+  initial_deposits: 15000.0
+  initial_inventory: 100.0
+  initial_price: 10.0
+  initial_wage: 60.0
+  labor_productivity: 8.0
+  target_inventory_ratio: 0.2
+  price_adjustment_speed: 0.03
+  wage_adjustment_speed: 0.02
+  max_leverage: 3.0
+
+bank:
+  initial_equity: 50000.0
+  initial_reserves: 20000.0
+  base_interest_rate: 0.005
+  risk_premium: 0.002
+  capital_adequacy_ratio: 0.08
+  max_loan_to_value: 0.8
+  default_threshold_periods: 3
+  loan_term_periods: 12
+
+government:
+  income_tax_rate: 0.2
+  transfer_per_unemployed: 50.0
+  spending_per_period: 2000.0
+  initial_deposits: 100000.0
+
+market:
+  labor_market_matching_rate: 0.8
+  goods_market_rationing: proportional
+
+shocks: []
+
+log_every: 1
+output_dir: outputs
