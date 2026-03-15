@@ -105,11 +105,19 @@ econosim/
 - [x] Government fiscal metrics added to simulation output (tax revenue, transfers, spending, money creation)
 - [x] Test suite expanded to **86 tests passing** (16 new RL env tests)
 
+### Phase 3b — Complete ✅
+- [x] `HouseholdEnv`: 12-dim obs, 2-dim action (consumption fraction, reservation wage mult), 3 reward modes
+- [x] `GovernmentEnv`: 12-dim obs, 3-dim action (tax rate, transfer mult, spending mult), 4 reward modes
+- [x] `BankEnv`: 12-dim obs, 2-dim action (base interest rate, capital adequacy ratio), 3 reward modes
+- [x] `EconoSimMultiAgentEnv`: PettingZoo parallel env with all 4 agent types acting simultaneously
+- [x] All envs registered with Gymnasium (`EconoSim-{Firm,Household,Government,Bank}-v0`)
+- [x] Test suite expanded to **130 tests passing** (44 new RL env tests)
+
 ---
 
 ## 4. What Is Currently In Progress
 
-- Phase 3 complete; ready for Phase 4 (advanced extensions) or RL training runs
+- Phase 3b complete; ready for RL training runs and Phase 4 (advanced extensions)
 
 ---
 
@@ -120,10 +128,10 @@ econosim/
 - Longer-run calibration to reduce deflation bias
 - More scenario YAML files (demand shock, credit crunch, fiscal austerity)
 
-### Phase 3b: Multi-agent RL
-- HouseholdEnv, BankEnv, GovernmentEnv wrappers
+### Phase 3c: RL training and evaluation
+- Run single-agent training for each env
 - Multi-agent training via PettingZoo/RLlib
-- Policy comparison: RL vs rule-based agents
+- Policy comparison: RL vs rule-based agents across scenarios
 
 ### Phase 4: Advanced economic extensions
 - Multiple goods / sectors
@@ -228,7 +236,7 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 86 tests pass** with 0 warnings
+- **All 130 tests pass** with 0 warnings
 - Package installs via `pip install -e ".[dev]"`
 - Python 3.11+ required
 - Virtual environment at `.venv/`
@@ -318,3 +326,14 @@ econosim/
 - Fixed DataFrame fragmentation warning in `aggregate_runs`
 - Added 16 new RL environment tests (86 total, all passing)
 - Installed gymnasium, updated pyproject.toml
+
+### Session 5 — 2025-03-15 (Phase 3b: multi-agent RL)
+- Built `HouseholdEnv` (12-dim obs, 2-dim action: consumption fraction + reservation wage mult)
+- Built `GovernmentEnv` (12-dim obs, 3-dim action: tax rate + transfer mult + spending mult)
+- Built `BankEnv` (12-dim obs, 2-dim action: base interest rate + capital adequacy ratio)
+- Built `EconoSimMultiAgentEnv` (PettingZoo parallel, all 4 agents act simultaneously)
+- Each env has multiple reward functions (utility, welfare, profit, stability, etc.)
+- Registered all envs with Gymnasium
+- Fixed household ID format (`hh_0000` not `hh_000`)
+- Added 44 new RL tests (130 total, all passing)
+- Installed pettingzoo
