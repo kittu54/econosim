@@ -47,8 +47,21 @@ econosim/
 │   └── schema.py       # SimulationConfig, agent configs, ShockSpec
 ├── experiments/    # Experiment runner
 │   └── runner.py       # run_experiment, run_batch, YAML loading
-└── rl/             # RL interface scaffold (Phase 3)
-    └── env.py          # EconEnvInterface ABC, observation/action specs
+├── rl/             # RL environments and training infrastructure (Phase 3)
+│   ├── env.py              # EconEnvInterface ABC, observation/action specs
+│   ├── firm_env.py         # Single-firm Gymnasium environment
+│   ├── household_env.py    # Single-household Gymnasium environment
+│   ├── government_env.py   # Government fiscal policy Gymnasium environment
+│   ├── bank_env.py         # Bank monetary policy Gymnasium environment
+│   ├── multi_agent_env.py  # PettingZoo parallel multi-agent environment
+│   ├── registration.py     # Gymnasium env registration
+│   └── wrappers.py         # NormalizeObs, NormalizeReward, ScaleReward, ClipAction, RecordMetrics
+└── extensions/     # Phase 4 advanced economic extensions
+    ├── multi_sector.py     # Multi-good production, input-output matrices, sectors
+    ├── skilled_labor.py    # Skill levels, wage dispersion, skill-based matching
+    ├── bonds.py            # Bond markets, yield curves, government debt manager
+    ├── expectations.py     # Adaptive, rolling, weighted expectation models
+    └── networks.py         # Trade/credit graphs, contagion, systemic risk
 ```
 
 **Key architectural decisions**:
@@ -115,48 +128,62 @@ econosim/
 
 ---
 
+### Phase 3c — Complete ✅
+- [x] Unified training script for all 4 agent types (`scripts/train_agent.py`)
+- [x] Multi-agent training with sequential and simultaneous modes (`scripts/train_multiagent.py`)
+- [x] Policy comparison across 6 shock scenarios (`scripts/compare_policies.py`)
+- [x] Observation/reward normalization wrappers (`econosim/rl/wrappers.py`)
+- [x] Hyperparameter grid search (`scripts/tune_hyperparams.py`)
+- [x] 24 new wrapper/training tests (232 → 367 total)
+
+### Phase 4 — Complete ✅
+- [x] Multi-sector production with Leontief I-O matrices (`econosim/extensions/multi_sector.py`)
+- [x] Labor skill differentiation with 4-tier system (`econosim/extensions/skilled_labor.py`)
+- [x] Bond markets and government debt management (`econosim/extensions/bonds.py`)
+- [x] Adaptive expectations with 3 model types (`econosim/extensions/expectations.py`)
+- [x] Trade/credit network effects with contagion analysis (`econosim/extensions/networks.py`)
+- [x] 135 new extension tests (367 total, all passing)
+
 ### Phase 5 — In Progress (Platform)
 - [x] Modern Next.js dashboard (`web/`) with React, TypeScript, Tailwind CSS
 - [x] FastAPI backend (`api/main.py`) for serving simulation data
 - [x] Vercel deployment configuration
 - [x] Fixed `inventory_asset` balance sheet bug
 - [x] Fixed delinquency threshold bug
-- [x] Added 78 new tests for agents and markets (208 total)
+- [x] Added 78 new tests for agents and markets
 - [ ] Data persistence layer
 - [ ] Scenario comparison UI
+- [ ] Integration of Phase 4 extensions into core simulation loop
 
 ---
 
 ## 4. What Is Currently In Progress
 
-- Phase 5 platform features: Modern UI deployed, backend API ready
-- Ready for RL training runs (Phase 3c) and advanced extensions (Phase 4)
+- Integrating Phase 4 extensions (multi-sector, skills, bonds, expectations, networks) into the core simulation engine
+- Running RL training experiments with the new unified training pipeline
+- Platform enhancements (Phase 5)
 
 ---
 
 ## 5. What Is Planned Next
 
 ### Near-term
-- Run RL training and compare agent vs baseline
+- Integrate Phase 4 extensions into core `simulation.py` step loop
+- Run RL training experiments and benchmark RL vs baseline policies
 - Longer-run calibration to reduce deflation bias
 - More scenario YAML files (demand shock, credit crunch, fiscal austerity)
 
-### Phase 3c: RL training and evaluation
-- Run single-agent training for each env
-- Multi-agent training via PettingZoo/RLlib
-- Policy comparison: RL vs rule-based agents across scenarios
+### Integration priorities
+- Wire `InputOutputMatrix` into firm production decisions
+- Add `SkilledHousehold` / `SkilledFirm` to agent creation pipeline
+- Enable `BondMarket` as alternative to pure money creation
+- Attach `AgentExpectations` to firm pricing/hiring decisions
+- Record trade/credit flows in `TradeNetwork` / `CreditNetwork`
 
-### Phase 4: Advanced economic extensions
-- Multiple goods / sectors
-- Labor skill differentiation
-- Bond markets / government debt
-- Expectations and adaptive behavior
-- Network effects (trade/credit graphs)
-
-### Phase 5: Dashboard / API / platform
-- Streamlit interactive dashboard
-- FastAPI backend
-- React frontend (if needed)
+### Phase 5 remaining work
+- Data persistence layer
+- Scenario comparison UI in Next.js dashboard
+- Deploy to Vercel
 
 ---
 
@@ -180,16 +207,26 @@ econosim/
 | `econosim/config/schema.py` | Pydantic config schemas |
 | `econosim/experiments/runner.py` | Experiment execution |
 | `econosim/rl/env.py` | RL environment interface |
+| `econosim/rl/firm_env.py` | Gymnasium FirmEnv for RL |
+| `econosim/rl/household_env.py` | Gymnasium HouseholdEnv for RL |
+| `econosim/rl/government_env.py` | Gymnasium GovernmentEnv for RL |
+| `econosim/rl/bank_env.py` | Gymnasium BankEnv for RL |
+| `econosim/rl/multi_agent_env.py` | PettingZoo multi-agent parallel env |
+| `econosim/rl/wrappers.py` | NormalizeObs, NormalizeReward, ScaleReward, ClipAction, RecordMetrics |
+| `econosim/rl/registration.py` | Gymnasium env registration |
+| `econosim/extensions/multi_sector.py` | Multi-good production, I-O matrices, sectors |
+| `econosim/extensions/skilled_labor.py` | Skill levels, wage dispersion, skill-based matching |
+| `econosim/extensions/bonds.py` | Bond markets, yield curves, government debt manager |
+| `econosim/extensions/expectations.py` | Adaptive, rolling, weighted expectation models |
+| `econosim/extensions/networks.py` | Trade/credit network graphs, contagion, systemic risk |
+| `scripts/train_agent.py` | Unified RL training (all 4 agents, PPO/A2C, normalization) |
+| `scripts/train_multiagent.py` | Multi-agent training (sequential + simultaneous modes) |
+| `scripts/compare_policies.py` | RL vs baseline comparison across shock scenarios |
+| `scripts/tune_hyperparams.py` | Hyperparameter grid search |
+| `scripts/train_firm_rl.py` | Legacy SB3 PPO training script (firm only) |
 | `scenarios/baseline.yaml` | Default baseline scenario |
 | `scenarios/supply_shock.yaml` | Supply shock scenario |
-| `dashboard.py` | Streamlit interactive dashboard |
-| `econosim/rl/firm_env.py` | Gymnasium FirmEnv for RL |
-| `econosim/rl/registration.py` | Gymnasium env registration |
-| `scripts/train_firm_rl.py` | SB3 PPO training script |
-| `tests/test_core/` | Core accounting/contract/goods tests |
-| `tests/test_integration/` | Full simulation integration tests |
-| `tests/test_experiments/` | Experiment runner / metrics tests |
-| `tests/test_rl/` | RL environment tests |
+| `dashboard.py` | Streamlit interactive dashboard (legacy) |
 | `web/` | Next.js + React + Tailwind CSS frontend |
 | `web/src/app/page.tsx` | Main dashboard page component |
 | `web/src/components/` | KPI cards, charts, sidebar, tab views |
@@ -197,6 +234,12 @@ econosim/
 | `api/main.py` | FastAPI backend serving simulation data |
 | `vercel.json` | Vercel deployment configuration |
 | `requirements.txt` | Python dependencies for deployment |
+| `tests/test_rl_training.py` | RL wrapper and training infrastructure tests |
+| `tests/test_multi_sector.py` | Multi-sector production tests |
+| `tests/test_skilled_labor.py` | Skilled labor differentiation tests |
+| `tests/test_bonds.py` | Bond market and debt management tests |
+| `tests/test_expectations.py` | Adaptive expectations tests |
+| `tests/test_networks.py` | Trade/credit network tests |
 
 ---
 
@@ -226,20 +269,27 @@ econosim/
 
 ## 8. Known Bugs / Limitations / Technical Debt
 
-- **Firm `inventory_asset` account** exists on balance sheet but is never updated to reflect inventory value changes. This is cosmetic (doesn't break accounting since production costs flow through deposits/equity).
+- ~~**Firm `inventory_asset` account** exists on balance sheet but is never updated~~ → **FIXED** (Session 6): `_sync_inventory_asset()` now updates after production and sales
 - **Mild deflation**: With current defaults, prices decline slowly over long runs. This is a calibration issue — the goods market is supply-constrained and household savings accumulate. Acceptable for MVP.
 - **No household borrowing**: Credit market only serves firms currently.
-- **Single good, single labor type**: MVP constraint, by design.
+- ~~**Single good, single labor type**: MVP constraint, by design~~ → **ADDRESSED** (Phase 4): `multi_sector.py` and `skilled_labor.py` extensions built, pending integration into core sim loop
 - **No firm entry/exit**: Fixed number of firms throughout simulation.
 - **Bank reserves**: Not actively managed or constrained. Reserves account exists but isn't depleted by lending (endogenous money creation doesn't require reserves in current model).
+- **Phase 4 extensions not yet integrated**: Multi-sector, skills, bonds, expectations, and networks modules are built and tested but not yet wired into the core simulation step loop. They function as standalone modules ready for integration.
 
 ---
 
 ## 9. Open Questions
 
-- Should firm inventory be tracked on the balance sheet as an asset (with COGS adjustments), or is the current off-balance-sheet `Inventory` object sufficient for MVP?
+- ~~Should firm inventory be tracked on the balance sheet as an asset?~~ → **Resolved**: Yes, `_sync_inventory_asset()` now tracks it.
 - What is the right calibration for agent parameters to produce plausible 120-period dynamics?
 - How to handle firm bankruptcy / exit in later phases?
+- How to best integrate Phase 4 extensions into the core sim loop without breaking backward compatibility?
+  - Option A: Feature flags in SimulationConfig (e.g., `enable_multi_sector: bool = False`)
+  - Option B: Separate extended simulation builder (e.g., `build_extended_simulation()`)
+  - Option C: Plugin/hook system where extensions register themselves
+- Should bond market replace or supplement sovereign money creation?
+- How to calibrate skill distributions and training rates for realistic dynamics?
 
 ---
 
@@ -256,13 +306,17 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 208 tests pass** with 0 warnings
-- Package installs via `pip install -e ".[dev]"`
+- **All 367 tests pass** with 0 warnings
+- Package installs via `pip install -e ".[dev,rl]"`
 - Python 3.11+ required
 - Simulation builds, runs, and produces metrics
 - Accounting invariants verified after every step (including inventory asset)
 - Seeded reproducibility confirmed
 - Supply and demand shocks produce expected directional responses
+- **RL training pipeline**: Unified training for all 4 agent types with PPO/A2C, normalization, hyperparameter tuning
+- **Multi-agent training**: Sequential and simultaneous independent learners via PettingZoo
+- **Policy comparison**: 6 pre-defined shock scenarios with multi-seed statistical aggregation
+- **Phase 4 extensions**: Multi-sector, skilled labor, bonds, expectations, networks — all built and tested
 - Modern Next.js dashboard at `web/` (React + TypeScript + Tailwind CSS)
 - FastAPI backend at `api/` for serving simulation data
 - Vercel deployment configuration ready (`vercel.json`)
@@ -479,3 +533,141 @@ econosim/
 - All 208 tests passing
 - Next.js build compiles successfully
 - All accounting invariants verified
+
+### Session 8 — 2026-03-16 (Phase 3c + Phase 4)
+
+**Phase 3c — RL Training & Evaluation** (complete):
+
+*Unified Training Script (`scripts/train_agent.py`)*:
+- Trains any of 4 agent types: firm, household, government, bank
+- Supports PPO and A2C algorithms via `--algorithm` flag
+- 3 hyperparameter presets: `default`, `conservative`, `aggressive`
+- Optional observation & reward normalization via `--normalize` (VecNormalize)
+- Automatic baseline comparison with neutral actions per agent type
+- TensorBoard logging, best/final model saving, JSON results export
+- `--eval-only` mode for evaluating pre-trained models
+
+*Multi-Agent Training (`scripts/train_multiagent.py`)*:
+- `SingleAgentWrapper`: Wraps one agent's view of PettingZoo multi-agent env for SB3 compatibility
+- Sequential mode: Trains agents one-at-a-time (firm → household → bank → government), each using previously trained agents as fixed policies
+- Simultaneous mode: Round-robin training with periodic policy updates across all agents
+- Per-agent model saving, evaluation, and results aggregation
+
+*Policy Comparison (`scripts/compare_policies.py`)*:
+- 6 pre-defined shock scenarios: baseline, supply_shock, demand_shock, credit_crunch, tax_hike, stimulus
+- Multi-seed evaluation (default 5 seeds) with statistical aggregation (mean, std, min, max)
+- Per-timestep trajectory tracking for GDP, unemployment, prices, Gini, consumption, production, loans
+- Formatted comparison tables with RL vs baseline deltas and win/loss indicators
+- `--all-agents` mode for batch comparison across all agent types
+
+*Observation Normalization (`econosim/rl/wrappers.py`)*:
+- `RunningMeanStd`: Welford's online algorithm for running statistics
+- `NormalizeObservation`: Running mean/variance normalization with configurable clipping
+- `NormalizeReward`: Discounted return normalization for reward stability
+- `ScaleReward`: Fixed scaling factor wrapper
+- `ClipAction`: Safety clipping to action space bounds
+- `RecordEpisodeMetrics`: Per-episode macro metrics collection with summary generation
+- All wrappers are composable (stackable) and work with any EconoSim env
+
+*Hyperparameter Tuning (`scripts/tune_hyperparams.py`)*:
+- Grid search over: learning_rate, n_steps, batch_size, n_epochs, ent_coef, gamma
+- Automatic baseline comparison per trial for improvement scoring
+- Best model saving, top-5 results summary, full trial JSON export
+- `--max-trials` for limiting search space
+
+**Phase 4 — Advanced Economic Extensions** (complete):
+
+*Multi-Sector Production (`econosim/extensions/multi_sector.py`)*:
+- `Good`: Typed commodities with `GoodType` enum (CONSUMPTION, INTERMEDIATE, CAPITAL)
+  - Perishable goods with configurable depreciation rates
+- `SectorInventory`: Multi-good inventory with weighted-average costing, add/remove/depreciate
+- `InputOutputMatrix`: Leontief I-O matrix defining inter-sector technical coefficients
+  - `inputs_required()`: Intermediate input requirements per unit of output
+  - `labor_required()`: Labor coefficients per sector
+  - `leontief_inverse()`: (I-A)^(-1) total requirements matrix
+  - `total_requirements()`: Multiplier-based final demand propagation
+  - `is_productive()`: Hawkins-Simon eigenvalue condition check
+- `Sector`: Sector-level aggregation (output, revenue, employment, capacity utilization)
+- `create_default_sectors()`: Pre-configured 3-sector economy (agriculture, manufacturing, services)
+
+*Labor Skill Differentiation (`econosim/extensions/skilled_labor.py`)*:
+- `SkillLevel`: 4-tier IntEnum (UNSKILLED → HIGHLY_SKILLED) with productivity multipliers (1.0×-4.0×) and wage premiums (1.0×-3.5×)
+- `SkilledHousehold`: Skill-based productivity, experience accumulation, skill decay when unemployed, training/upgrade mechanics
+- `SkilledFirm`: Per-skill hiring, wage tracking, effective productivity computation
+- `SkilledLaborMarket`: Skill-based matching with priority ordering, wage dispersion (CV) metric
+- `SkillDistribution`: Labor force composition tracking
+- `SkillRequirement`: Job posting requirements with custom wage schedules
+
+*Bond Markets (`econosim/extensions/bonds.py`)*:
+- `Bond`: Fixed-income security with face value, coupon rate, maturity, fair value (DCF), current yield
+- `BondMarket`: Primary issuance and secondary trading
+  - Coupon processing and maturity handling
+  - Yield curve construction from outstanding bonds
+  - Outstanding balance and coupon obligation tracking
+- `GovernmentDebtManager`: Bond-financed government spending
+  - Debt issuance with configurable maturity and coupon rates
+  - Debt service (coupons + principal redemption)
+  - Debt-to-GDP ratio tracking and issuance limits
+  - Net debt computation
+
+*Adaptive Expectations (`econosim/extensions/expectations.py`)*:
+- `AdaptiveExpectations`: Exponential smoothing (x_e = α×actual + (1-α)×x_e)
+- `RollingExpectations`: Rolling window average with optional linear trend extrapolation
+- `WeightedExpectations`: Combines multiple models with configurable weights
+- `AgentExpectations`: Container for price, wage, demand, inflation forecasts
+- All models: multi-step forecasting, error tracking, serializable state
+
+*Network Effects (`econosim/extensions/networks.py`)*:
+- `EconomicNetwork`: Base directed weighted graph (no external dependencies)
+  - Degree/weighted centrality, density, HHI concentration index
+  - Local/average clustering coefficients
+  - Weakly connected components detection
+  - Edge decay for temporal dynamics
+- `TradeNetwork`: Goods trade relationships, seller concentration (HHI), buyer diversity, top sellers
+- `CreditNetwork`: Lending relationships, exposure tracking per lender/borrower
+  - Contagion risk: first-order default impact analysis
+  - Systemic risk scoring: density × concentration × exposure factor
+
+**Tests** (208 → 367):
+- 24 new RL wrapper/training tests (`tests/test_rl_training.py`)
+- 30 multi-sector tests (`tests/test_multi_sector.py`)
+- 26 skilled labor tests (`tests/test_skilled_labor.py`)
+- 26 bond market tests (`tests/test_bonds.py`)
+- 20 expectations tests (`tests/test_expectations.py`)
+- 33 network tests (`tests/test_networks.py`)
+- All 367 tests passing, 0 warnings
+
+**New Files**: 19 files added, 4,425 lines of code
+
+---
+
+### Session 9: Phase 4 Extension Integration into Core Simulation
+
+**Goal**: Wire Phase 4 extensions (expectations, networks, bonds) into the core simulation engine so they activate when feature flags are enabled.
+
+**Changes to `econosim/engine/simulation.py`**:
+- Added `expectations`, `trade_network`, `credit_network`, `bond_market`, `debt_manager` fields to `SimulationState`
+- `build_simulation()` initializes extensions based on `config.extensions` feature flags:
+  - `enable_expectations`: Creates `AgentExpectations` per firm
+  - `enable_networks`: Creates `TradeNetwork` and `CreditNetwork`
+  - `enable_bonds`: Creates `BondMarket` and `GovernmentDebtManager`
+- `step()` integration points:
+  - Network edge decay at start of each period
+  - Credit network records new loans after credit market clearing
+  - Trade network records firm sales after goods market clearing
+  - Bond issuance when government faces fiscal shortfall (before sovereign money creation)
+  - Bond debt service (coupons + maturities) after loan debt service
+  - Expectations updated with realized price/wage/demand/inflation at end of period
+- `compute_period_metrics()` adds 14 new extension metrics:
+  - Trade: density, concentration (HHI), seller concentration
+  - Credit: density, concentration, systemic risk score
+  - Bonds: outstanding, interest expense, issued, redeemed, debt-to-GDP
+  - Expectations: average price forecast error, average demand forecast error
+
+**New test file**: `tests/test_integration/test_extensions_integration.py` (18 tests)
+- Tests extensions disabled by default (no extra metrics)
+- Tests each extension individually: initialization, metric presence, accounting invariants
+- Tests all extensions enabled simultaneously
+- Tests reproducibility with extensions enabled
+
+**Tests**: 367 → 385 passing, 0 warnings
