@@ -254,6 +254,13 @@
   - Firm initial equity now includes inventory value
   - Fixed Vercel deployment: requirements.txt now in api/ directory where @vercel/python expects it
 - **Test coverage expanded**: Agent and market tests added (78 new tests)
+- **Phase 4 extension integration** into core simulation engine:
+  - Expectations: `AgentExpectations` per firm, updated each period with realized price/wage/demand/inflation
+  - Networks: `TradeNetwork` records firm sales, `CreditNetwork` records loan issuance, edge decay per period
+  - Bonds: `GovernmentDebtManager` issues bonds when government faces fiscal shortfall before sovereign money creation
+  - All extensions gated by feature flags in `ExtensionsConfig` (off by default)
+  - 14 new extension metrics added to `compute_period_metrics()`
+  - 18 new integration tests verifying extensions work with core simulation
 
 **Remaining work**:
 - **Data persistence**: Database storage for long runs
@@ -271,12 +278,12 @@
 - **Phases 0-3c**: ✅ Complete (full RL training pipeline)
 - **Phase 4**: ✅ Complete (advanced economic extensions)
 - **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
-- **Tests**: 367 passing, 0 warnings
+- **Tests**: 385 passing, 0 warnings
 - **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
 - **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
 - **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training experiments, integrate Phase 4 extensions into core sim, deploy to Vercel
+- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence
 
 ---
 

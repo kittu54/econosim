@@ -638,3 +638,36 @@ econosim/
 - All 367 tests passing, 0 warnings
 
 **New Files**: 19 files added, 4,425 lines of code
+
+---
+
+### Session 9: Phase 4 Extension Integration into Core Simulation
+
+**Goal**: Wire Phase 4 extensions (expectations, networks, bonds) into the core simulation engine so they activate when feature flags are enabled.
+
+**Changes to `econosim/engine/simulation.py`**:
+- Added `expectations`, `trade_network`, `credit_network`, `bond_market`, `debt_manager` fields to `SimulationState`
+- `build_simulation()` initializes extensions based on `config.extensions` feature flags:
+  - `enable_expectations`: Creates `AgentExpectations` per firm
+  - `enable_networks`: Creates `TradeNetwork` and `CreditNetwork`
+  - `enable_bonds`: Creates `BondMarket` and `GovernmentDebtManager`
+- `step()` integration points:
+  - Network edge decay at start of each period
+  - Credit network records new loans after credit market clearing
+  - Trade network records firm sales after goods market clearing
+  - Bond issuance when government faces fiscal shortfall (before sovereign money creation)
+  - Bond debt service (coupons + maturities) after loan debt service
+  - Expectations updated with realized price/wage/demand/inflation at end of period
+- `compute_period_metrics()` adds 14 new extension metrics:
+  - Trade: density, concentration (HHI), seller concentration
+  - Credit: density, concentration, systemic risk score
+  - Bonds: outstanding, interest expense, issued, redeemed, debt-to-GDP
+  - Expectations: average price forecast error, average demand forecast error
+
+**New test file**: `tests/test_integration/test_extensions_integration.py` (18 tests)
+- Tests extensions disabled by default (no extra metrics)
+- Tests each extension individually: initialization, metric presence, accounting invariants
+- Tests all extensions enabled simultaneously
+- Tests reproducibility with extensions enabled
+
+**Tests**: 367 → 385 passing, 0 warnings

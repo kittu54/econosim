@@ -30,6 +30,9 @@ from econosim.agents.government import Government
 from econosim.markets.labor import LaborMarket
 from econosim.markets.goods import GoodsMarket
 from econosim.markets.credit import CreditMarket
+from econosim.extensions.expectations import AgentExpectations
+from econosim.extensions.networks import TradeNetwork, CreditNetwork
+from econosim.extensions.bonds import BondMarket, GovernmentDebtManager
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,13 @@ class SimulationState:
         self.rng = rng
         self.current_period: int = 0
         self.history: list[dict[str, Any]] = []
+
+        # Phase 4 extensions (initialized by build_simulation when enabled)
+        self.expectations: dict[str, AgentExpectations] = {}
+        self.trade_network: TradeNetwork | None = None
+        self.credit_network: CreditNetwork | None = None
+        self.bond_market: BondMarket | None = None
+        self.debt_manager: GovernmentDebtManager | None = None
 
 
 def build_simulation(config: SimulationConfig) -> SimulationState:
@@ -144,7 +154,7 @@ def build_simulation(config: SimulationConfig) -> SimulationState:
     goods_market = GoodsMarket(ledger)
     credit_market = CreditMarket(ledger)
 
-    return SimulationState(
+    state = SimulationState(
         config=config,
         ledger=ledger,
         households=households,
@@ -156,6 +166,35 @@ def build_simulation(config: SimulationConfig) -> SimulationState:
         credit_market=credit_market,
         rng=rng,
     )
+
+    # Initialize Phase 4 extensions based on feature flags
+    ext = config.extensions
+
+    if ext.enable_expectations:
+        exp_cfg = ext.expectations
+        for firm in firms:
+            state.expectations[firm.agent_id] = AgentExpectations(
+                agent_id=firm.agent_id,
+            )
+        logger.info("Expectations extension enabled for %d firms", len(firms))
+
+    if ext.enable_networks:
+        state.trade_network = TradeNetwork()
+        state.credit_network = CreditNetwork()
+        logger.info("Network tracking extension enabled")
+
+    if ext.enable_bonds:
+        bond_cfg = ext.bonds
+        state.bond_market = BondMarket()
+        state.debt_manager = GovernmentDebtManager(
+            bond_market=state.bond_market,
+            default_maturity=bond_cfg.default_maturity,
+            default_coupon_rate=bond_cfg.default_coupon_rate,
+            max_debt_to_gdp=bond_cfg.max_debt_to_gdp,
+        )
+        logger.info("Bond market extension enabled")
+
+    return state
 
 
 def apply_shocks(state: SimulationState, period: int) -> None:
@@ -227,12 +266,30 @@ def step(state: SimulationState) -> dict[str, Any]:
     # ── 1. Apply shocks ──────────────────────────────────────────
     apply_shocks(state, period)
 
+    # ── 1b. Reset extension period state ─────────────────────────
+    if state.debt_manager is not None:
+        state.debt_manager.reset_period_state()
+    if state.trade_network is not None:
+        decay_rate = state.config.extensions.networks.edge_decay_rate
+        state.trade_network.decay_edges(decay_rate)
+    if state.credit_network is not None:
+        decay_rate = state.config.extensions.networks.edge_decay_rate
+        state.credit_network.decay_edges(decay_rate)
+
     # ── 2. Credit market ─────────────────────────────────────────
     state.credit_market.clear(
         firms=state.firms,
         bank=state.bank,
         period=period,
     )
+
+    # Record credit flows in network
+    if state.credit_network is not None and state.credit_market.total_issued > 0:
+        for loan in state.bank.loan_book.active_loans():
+            if loan.origination_period == period:
+                state.credit_network.record_loan(
+                    state.bank.agent_id, loan.borrower_id, loan.principal, period
+                )
 
     # ── 3. Labor market ──────────────────────────────────────────
     state.labor_market.clear(
@@ -257,6 +314,15 @@ def step(state: SimulationState) -> dict[str, Any]:
         rng=state.rng,
     )
 
+    # Record trade flows in network (aggregate firm sales this period)
+    if state.trade_network is not None:
+        for firm in state.firms:
+            if firm.units_sold > 0:
+                # Record aggregate sales volume per firm
+                state.trade_network.record_trade(
+                    "households", firm.agent_id, firm.revenue, period
+                )
+
     # Sync inventory asset on balance sheet after goods market sales
     for firm in state.firms:
         firm.sync_after_sales()
@@ -278,6 +344,19 @@ def step(state: SimulationState) -> dict[str, Any]:
         n_unemployed * state.government.transfer_per_unemployed
         + state.government.spending_per_period
     )
+
+    # Bond-financed spending: track debt issuance alongside sovereign money creation
+    if state.debt_manager is not None and fiscal_need > state.government.deposits:
+        shortfall = round_money(fiscal_need - state.government.deposits)
+        last_gdp = state.history[-1]["gdp"] if state.history else fiscal_need * 10
+        if state.debt_manager.can_issue(shortfall, last_gdp):
+            # Record bond issuance (the actual funding comes via ensure_solvency)
+            state.debt_manager.issue_debt(
+                amount=shortfall,
+                buyer_id=state.bank.agent_id,
+                period=period,
+            )
+
     state.government.ensure_solvency(fiscal_need, period)
 
     # Transfers to unemployed
@@ -320,9 +399,28 @@ def step(state: SimulationState) -> dict[str, Any]:
     state.bank.process_loan_payments(period)
     defaulted = state.bank.process_defaults(period)
 
+    # Bond debt service: process coupons and maturities (tracking only)
+    if state.debt_manager is not None:
+        state.debt_manager.service_debt(period)
+
     # ── 8. Wage adjustment (for next period) ─────────────────────
     for firm in state.firms:
         firm.adjust_wage()
+
+    # ── 8b. Update expectations ────────────────────────────────
+    if state.expectations:
+        avg_price = float(np.mean([f.price for f in state.firms])) if state.firms else 0.0
+        prev_price = state.history[-1]["avg_price"] if state.history else avg_price
+        inflation = (avg_price - prev_price) / max(prev_price, 0.01) if prev_price > 0 else 0.0
+        for firm in state.firms:
+            exp = state.expectations.get(firm.agent_id)
+            if exp is not None:
+                exp.update_all(
+                    actual_price=avg_price,
+                    actual_wage=firm.posted_wage,
+                    actual_demand=firm.units_sold,
+                    actual_inflation=inflation,
+                )
 
     # ── 9. Compute metrics ───────────────────────────────────────
     metrics = compute_period_metrics(state, period)
@@ -379,7 +477,7 @@ def compute_period_metrics(state: SimulationState, period: int) -> dict[str, Any
     total_vacancies = sum(f.vacancies for f in state.firms)
     total_employed = employed
 
-    return {
+    metrics = {
         "period": period,
         "gdp": round_money(gdp),
         "unemployment_rate": round(unemployment_rate, 4),
@@ -412,6 +510,39 @@ def compute_period_metrics(state: SimulationState, period: int) -> dict[str, Any
         "employed": employed,
         "labor_force": labor_force,
     }
+
+    # Extension metrics
+    if state.trade_network is not None:
+        obs = state.trade_network.get_observation()
+        metrics["trade_network_density"] = obs["density"]
+        metrics["trade_network_concentration"] = obs["concentration_hhi"]
+        metrics["trade_seller_concentration"] = state.trade_network.seller_concentration()
+
+    if state.credit_network is not None:
+        obs = state.credit_network.get_observation()
+        metrics["credit_network_density"] = obs["density"]
+        metrics["credit_network_concentration"] = obs["concentration_hhi"]
+        metrics["credit_systemic_risk"] = state.credit_network.systemic_risk_score()
+
+    if state.debt_manager is not None:
+        obs = state.debt_manager.get_observation()
+        metrics["bond_outstanding"] = obs["total_outstanding"]
+        metrics["bond_interest_expense"] = obs["period_interest_expense"]
+        metrics["bond_issued"] = obs["period_bonds_issued"]
+        metrics["bond_redeemed"] = obs["period_bonds_redeemed"]
+        metrics["bond_debt_to_gdp"] = state.debt_manager.debt_to_gdp(gdp)
+
+    if state.expectations:
+        # Average forecast errors across firms
+        price_errors = []
+        demand_errors = []
+        for exp in state.expectations.values():
+            price_errors.append(abs(exp.price.forecast_error()))
+            demand_errors.append(abs(exp.demand.forecast_error()))
+        metrics["avg_price_forecast_error"] = round(float(np.mean(price_errors)), 4) if price_errors else 0.0
+        metrics["avg_demand_forecast_error"] = round(float(np.mean(demand_errors)), 4) if demand_errors else 0.0
+
+    return metrics
 
 
 def _gini_coefficient(values: np.ndarray) -> float:

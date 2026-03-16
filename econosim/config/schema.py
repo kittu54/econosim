@@ -65,6 +65,39 @@ class ShockSpec(BaseModel):
     additive: bool = False  # if True, add magnitude; if False, multiply
 
 
+class BondConfig(BaseModel):
+    """Configuration for government bond market."""
+    default_maturity: int = 12  # periods until bond matures
+    default_coupon_rate: float = 0.005  # per-period coupon rate
+    max_debt_to_gdp: float = 2.0  # maximum debt-to-GDP ratio
+
+
+class ExpectationsConfig(BaseModel):
+    """Configuration for adaptive expectations."""
+    price_alpha: float = 0.3  # adaptive expectations smoothing for prices
+    wage_alpha: float = 0.2  # adaptive expectations smoothing for wages
+    demand_window: int = 4   # rolling window for demand expectations
+    demand_use_trend: bool = True  # use trend extrapolation for demand
+
+
+class NetworkConfig(BaseModel):
+    """Configuration for economic networks."""
+    track_trade: bool = True  # record goods market transactions
+    track_credit: bool = True  # record credit market transactions
+    edge_decay_rate: float = 0.1  # per-period decay of network edges
+
+
+class ExtensionsConfig(BaseModel):
+    """Feature flags and configuration for Phase 4 extensions."""
+    enable_expectations: bool = False  # adaptive expectations for firms
+    enable_networks: bool = False  # trade/credit network tracking
+    enable_bonds: bool = False  # government bond market
+
+    bonds: BondConfig = Field(default_factory=BondConfig)
+    expectations: ExpectationsConfig = Field(default_factory=ExpectationsConfig)
+    networks: NetworkConfig = Field(default_factory=NetworkConfig)
+
+
 class SimulationConfig(BaseModel):
     """Top-level simulation configuration."""
 
@@ -78,6 +111,7 @@ class SimulationConfig(BaseModel):
     bank: BankConfig = Field(default_factory=BankConfig)
     government: GovernmentConfig = Field(default_factory=GovernmentConfig)
     market: MarketConfig = Field(default_factory=MarketConfig)
+    extensions: ExtensionsConfig = Field(default_factory=ExtensionsConfig)
 
     shocks: list[ShockSpec] = Field(default_factory=list)
 
