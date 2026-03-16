@@ -262,8 +262,8 @@ export default function CompareTab({ savedRuns, onDeleteRun, currentRun, onSaveC
                             fontSize: "12px",
                           }}
                           itemStyle={{ padding: "2px 0" }}
-                          formatter={(value: any, name: string) => {
-                            const runId = name.split('_')[0];
+                          formatter={(value: any, name: any) => {
+                            const runId = String(name).split('_')[0];
                             const runName = runsToCompare.find(r => r.id === runId)?.name || runId;
                             return [typeof value === 'number' && value < 1000 ? value.toFixed(2) : value, runName];
                           }}
