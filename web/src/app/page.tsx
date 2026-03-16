@@ -28,21 +28,26 @@ import LaborTab from "@/components/tabs/LaborTab";
 import GovernmentTab from "@/components/tabs/GovernmentTab";
 import MoneyTab from "@/components/tabs/MoneyTab";
 import DataTab from "@/components/tabs/DataTab";
+import ExtensionsTab from "@/components/tabs/ExtensionsTab";
+import CompareTab from "@/components/tabs/CompareTab";
 import { runSimulation } from "@/lib/api";
 import {
   SimulationRequest,
   SimulationResponse,
   PeriodData,
+  DEFAULT_CONFIG,
 } from "@/lib/types";
 import { fmtNumber, fmtPercent, fmtDelta, fmtDeltaPercent } from "@/lib/format";
 
-type TabId = "macro" | "labor" | "government" | "money" | "data";
+type TabId = "macro" | "labor" | "government" | "money" | "extensions" | "compare" | "data";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "macro", label: "Macro", icon: <BarChart3 className="w-4 h-4" /> },
   { id: "labor", label: "Labor & Production", icon: <HardHat className="w-4 h-4" /> },
   { id: "government", label: "Government", icon: <Landmark className="w-4 h-4" /> },
   { id: "money", label: "Money & Credit", icon: <Coins className="w-4 h-4" /> },
+  { id: "extensions", label: "Extensions", icon: <Activity className="w-4 h-4" /> },
+  { id: "compare", label: "Compare", icon: <GitBranch className="w-4 h-4" /> },
   { id: "data", label: "Data", icon: <Table2 className="w-4 h-4" /> },
 ];
 
@@ -171,6 +176,9 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("macro");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [runCount, setRunCount] = useState(0);
+  const [savedRuns, setSavedRuns] = useState<
+    { name: string; data: PeriodData[]; config: Record<string, unknown> }[]
+  >([]);
 
   const handleRun = useCallback(async (config: SimulationRequest) => {
     setIsRunning(true);
@@ -187,6 +195,15 @@ export default function Dashboard() {
       setIsRunning(false);
     }
   }, []);
+
+  const handleSaveRun = useCallback(() => {
+    if (!result) return;
+    const name = `Run #${runCount}`;
+    setSavedRuns((prev) => [
+      ...prev.slice(-4), // keep last 5
+      { name, data: result.periods, config: result.config },
+    ]);
+  }, [result, runCount]);
 
   const data = result?.periods ?? [];
   const aggregate = result?.aggregate ?? null;
@@ -377,6 +394,20 @@ export default function Dashboard() {
               )}
               {activeTab === "money" && (
                 <MoneyTab data={data} aggregate={aggregate} />
+              )}
+              {activeTab === "extensions" && (
+                <ExtensionsTab data={data} aggregate={aggregate} />
+              )}
+              {activeTab === "compare" && (
+                <CompareTab
+                  currentData={data}
+                  currentName={`Run #${runCount}`}
+                  savedRuns={savedRuns}
+                  onSave={handleSaveRun}
+                  onRemove={(idx) =>
+                    setSavedRuns((prev) => prev.filter((_, i) => i !== idx))
+                  }
+                />
               )}
               {activeTab === "data" && (
                 <DataTab data={data} summary={result.summary} />
