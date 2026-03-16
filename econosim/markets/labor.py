@@ -34,6 +34,7 @@ class LaborMarket:
         firms: list[Firm],
         period: int,
         rng: np.random.Generator,
+        skip_vacancy_decision: bool = False,
     ) -> None:
         """Run labor market matching and wage payment for one period.
 
@@ -43,6 +44,9 @@ class LaborMarket:
         3. Shuffle seekers randomly
         4. Match seekers to firms with open vacancies
         5. Pay wages via ledger
+
+        If skip_vacancy_decision is True, assumes firm.vacancies were
+        already set externally (e.g. by a policy) and skips decide_vacancies().
         """
         # Reset worker lists
         for firm in firms:
@@ -55,7 +59,10 @@ class LaborMarket:
         # Collect vacancies
         firm_vacancies: list[tuple[Firm, int]] = []
         for firm in firms:
-            v = firm.decide_vacancies()
+            if skip_vacancy_decision:
+                v = firm.vacancies
+            else:
+                v = firm.decide_vacancies()
             if v > 0:
                 firm_vacancies.append((firm, v))
 

@@ -153,9 +153,32 @@
 - No central bank agent yet (optional in design)
 - Measurement GDP still uses market transactions as floor
 
+---
+
+## 2026-03-16 — Policy Interfaces Wired Into Engine Loop
+
+### Changes
+- **`engine/simulation.py`**: Added `build_macro_state()`, `build_firm_state()`, `build_bank_state()`, `build_govt_state()` helpers that extract typed state snapshots from live simulation
+- **`engine/simulation.py`**: Added `_apply_firm_policy()`, `_apply_bank_policy()`, `_apply_govt_policy()` that call policy.act() and apply actions to agents
+- **`engine/simulation.py`**: `SimulationState` now holds optional `firm_policy`, `household_policy`, `bank_policy`, `government_policy` fields
+- **`engine/simulation.py`**: `step()` applies policies at step 1a (after shocks, before markets)
+- **`engine/simulation.py`**: `run_simulation()` accepts optional policy arguments
+- **`markets/labor.py`**: Added `skip_vacancy_decision` flag so policies can pre-set vacancies
+- **`tests/test_policy_integration.py`**: 17 new tests covering state builders, rule-based policies, custom policies (zero-vacancy, high-spending, aggressive-rate, spy policies), no-regression, balance sheet integrity
+
+### Design Decisions
+1. **Non-breaking integration**: Policies default to None; when None, all existing hardcoded logic runs unchanged
+2. **Policy application order**: Bank policy → Government policy → Firm policy → markets. This ensures rates and fiscal params are set before firms make decisions
+3. **Firm policy skips `decide_vacancies()` and `adjust_price()`**: When firm_policy is set, these methods are bypassed entirely. The policy's FirmAction.vacancies and price_adjustment fields drive behavior instead
+4. **Wage adjustment left to existing logic**: `adjust_wage()` still runs after labor market since it depends on vacancy fill rate, which is only known post-matching
+
+### Test Results
+- **526 tests passing** (509 existing + 17 new)
+- Zero regressions across all stress tests, accounting tests, and extension tests
+
 ### Next Steps
-- Wire policy interfaces into simulation engine
-- Run actual FRED data pulls and calibrate to US data
-- Profile and parallelize calibration runs
-- Build PyTorch transformer training loop
-- Deploy updated API and dashboard
+- Run actual FRED data pulls and calibrate to US macro moments
+- Profile and parallelize calibration/forecasting runs
+- Build PyTorch transformer training for production
+- Add forecast fan charts to dashboard
+- Wire household policy into goods market (consumption fraction)

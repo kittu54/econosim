@@ -33,6 +33,11 @@ from econosim.markets.credit import CreditMarket
 from econosim.extensions.expectations import AgentExpectations
 from econosim.extensions.networks import TradeNetwork, CreditNetwork
 from econosim.extensions.bonds import BondMarket, GovernmentDebtManager
+from econosim.policies.interfaces import (
+    FirmPolicy, HouseholdPolicy, BankPolicy, GovernmentPolicy,
+    FirmState, HouseholdState, BankState, GovernmentState,
+    MacroState, FirmAction, BankAction, GovernmentAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +77,12 @@ class SimulationState:
         self.credit_network: CreditNetwork | None = None
         self.bond_market: BondMarket | None = None
         self.debt_manager: GovernmentDebtManager | None = None
+
+        # Policy interfaces (None = use hardcoded agent logic)
+        self.firm_policy: FirmPolicy | None = None
+        self.household_policy: HouseholdPolicy | None = None
+        self.bank_policy: BankPolicy | None = None
+        self.government_policy: GovernmentPolicy | None = None
 
 
 def build_simulation(config: SimulationConfig) -> SimulationState:
@@ -248,6 +259,138 @@ def apply_shocks(state: SimulationState, period: int) -> None:
                     state.government.spending_per_period *= shock.magnitude
 
 
+def build_macro_state(state: SimulationState) -> MacroState:
+    """Build a MacroState snapshot from current simulation state."""
+    h = state.history
+    period = state.current_period
+
+    if len(h) >= 1:
+        last = h[-1]
+        gdp = last["gdp"]
+        gdp_growth = (gdp - h[-2]["gdp"]) / max(h[-2]["gdp"], 1.0) if len(h) >= 2 else 0.0
+        prev_price = h[-2]["avg_price"] if len(h) >= 2 else last["avg_price"]
+        inflation = (last["avg_price"] - prev_price) / max(prev_price, 0.01)
+        prev_loans = h[-2]["total_loans_outstanding"] if len(h) >= 2 else last["total_loans_outstanding"]
+        credit_growth = (last["total_loans_outstanding"] - prev_loans) / max(prev_loans, 1.0)
+        return MacroState(
+            period=period,
+            gdp=gdp,
+            gdp_growth=gdp_growth,
+            inflation_rate=inflation,
+            unemployment_rate=last["unemployment_rate"],
+            avg_price=last["avg_price"],
+            avg_wage=last["avg_wage"],
+            total_credit=last["total_loans_outstanding"],
+            credit_growth=credit_growth,
+            bank_capital_ratio=last["bank_capital_ratio"],
+            lending_rate=state.bank.lending_rate,
+        )
+    else:
+        # First period — use initial values
+        return MacroState(
+            period=period,
+            lending_rate=state.bank.lending_rate,
+            bank_capital_ratio=state.bank.capital_ratio,
+        )
+
+
+def build_firm_state(firm: Firm) -> FirmState:
+    """Build a FirmState observation from a firm agent."""
+    return FirmState(
+        deposits=firm.deposits,
+        inventory=firm.inventory.quantity,
+        price=firm.price,
+        posted_wage=firm.posted_wage,
+        workers_count=len(firm.workers),
+        revenue=firm.revenue,
+        prev_revenue=firm.prev_revenue,
+        wage_bill=firm.wage_bill,
+        units_sold=firm.units_sold,
+        prev_units_sold=firm.prev_units_sold,
+        total_debt=firm.total_debt,
+        equity=firm.equity_value,
+        labor_productivity=firm.labor_productivity,
+        target_inventory_ratio=firm.target_inventory_ratio,
+    )
+
+
+def build_bank_state(bank: Bank) -> BankState:
+    """Build a BankState observation from the bank agent."""
+    return BankState(
+        total_loans=bank.total_loans,
+        total_deposits=bank.total_deposits_liability,
+        equity=bank.equity_value,
+        capital_ratio=bank.capital_ratio,
+        lending_rate=bank.lending_rate,
+        interest_income=bank.interest_income,
+        default_losses=bank.default_losses,
+        active_loans_count=len(bank.loan_book.active_loans()),
+        base_interest_rate=bank.base_interest_rate,
+        risk_premium=bank.risk_premium,
+    )
+
+
+def build_govt_state(govt: Government) -> GovernmentState:
+    """Build a GovernmentState observation from the government agent."""
+    return GovernmentState(
+        deposits=govt.deposits,
+        tax_revenue=govt.tax_revenue,
+        transfers_paid=govt.transfers_paid,
+        goods_spending=govt.goods_spending,
+        budget_balance=govt.budget_balance,
+        income_tax_rate=govt.income_tax_rate,
+        transfer_per_unemployed=govt.transfer_per_unemployed,
+        spending_per_period=govt.spending_per_period,
+        cumulative_debt=govt.cumulative_money_created,
+    )
+
+
+def _apply_firm_policy(state: SimulationState, macro: MacroState) -> None:
+    """Apply firm policy actions: set vacancies and price adjustments."""
+    policy = state.firm_policy
+    if policy is None:
+        return
+
+    for firm in state.firms:
+        fs = build_firm_state(firm)
+        action = policy.act(fs, macro)
+
+        # Set vacancies directly (overrides decide_vacancies)
+        firm.vacancies = max(0, action.vacancies)
+
+        # Apply price adjustment
+        firm.price = round_money(firm.price * action.price_adjustment)
+        firm.price = max(0.01, firm.price)
+
+
+def _apply_bank_policy(state: SimulationState, macro: MacroState) -> None:
+    """Apply bank policy actions: adjust rates and targets."""
+    policy = state.bank_policy
+    if policy is None:
+        return
+
+    bs = build_bank_state(state.bank)
+    action = policy.act(bs, macro)
+
+    state.bank.base_interest_rate = max(0.0, state.bank.base_interest_rate + action.base_rate_adjustment)
+    state.bank.capital_adequacy_ratio = max(0.01, state.bank.capital_adequacy_ratio + action.capital_target_adjustment)
+    state.bank.risk_premium = max(0.0, state.bank.risk_premium + action.risk_premium_adjustment)
+
+
+def _apply_govt_policy(state: SimulationState, macro: MacroState) -> None:
+    """Apply government policy actions: update fiscal parameters."""
+    policy = state.government_policy
+    if policy is None:
+        return
+
+    gs = build_govt_state(state.government)
+    action = policy.act(gs, macro)
+
+    state.government.income_tax_rate = max(0.0, min(1.0, action.tax_rate))
+    state.government.transfer_per_unemployed = max(0.0, action.transfer_per_unemployed)
+    state.government.spending_per_period = max(0.0, action.spending_per_period)
+
+
 def step(state: SimulationState) -> dict[str, Any]:
     """Execute one period of the simulation.
 
@@ -265,6 +408,13 @@ def step(state: SimulationState) -> dict[str, Any]:
 
     # ── 1. Apply shocks ──────────────────────────────────────────
     apply_shocks(state, period)
+
+    # ── 1a. Apply policy actions ─────────────────────────────────
+    macro = build_macro_state(state)
+    _apply_bank_policy(state, macro)
+    _apply_govt_policy(state, macro)
+    if state.firm_policy is not None:
+        _apply_firm_policy(state, macro)
 
     # ── 1b. Reset extension period state ─────────────────────────
     if state.debt_manager is not None:
@@ -297,6 +447,7 @@ def step(state: SimulationState) -> dict[str, Any]:
         firms=state.firms,
         period=period,
         rng=state.rng,
+        skip_vacancy_decision=state.firm_policy is not None,
     )
 
     # ── 4. Production ────────────────────────────────────────────
@@ -304,8 +455,9 @@ def step(state: SimulationState) -> dict[str, Any]:
         firm.produce()
 
     # ── 5. Goods pricing + goods market ──────────────────────────
-    for firm in state.firms:
-        firm.adjust_price()
+    if state.firm_policy is None:
+        for firm in state.firms:
+            firm.adjust_price()
 
     state.goods_market.clear(
         households=state.households,
@@ -555,9 +707,22 @@ def _gini_coefficient(values: np.ndarray) -> float:
     return float((2.0 * np.sum((np.arange(1, n + 1) * values)) / (n * np.sum(values))) - (n + 1) / n)
 
 
-def run_simulation(config: SimulationConfig) -> SimulationState:
-    """Build and run a complete simulation from config."""
+def run_simulation(
+    config: SimulationConfig,
+    firm_policy: FirmPolicy | None = None,
+    household_policy: HouseholdPolicy | None = None,
+    bank_policy: BankPolicy | None = None,
+    government_policy: GovernmentPolicy | None = None,
+) -> SimulationState:
+    """Build and run a complete simulation from config.
+
+    Optional policy arguments override the default hardcoded agent logic.
+    """
     state = build_simulation(config)
+    state.firm_policy = firm_policy
+    state.household_policy = household_policy
+    state.bank_policy = bank_policy
+    state.government_policy = government_policy
     logger.info(f"Starting simulation '{config.name}' for {config.num_periods} periods")
 
     for t in range(config.num_periods):

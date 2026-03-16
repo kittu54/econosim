@@ -44,6 +44,9 @@
 - Clean state-transition simulation loop with explicit stages
 - Rule-based baseline policies extracted from current agent logic
 - Policy swap without engine changes
+- **Wired into engine**: Policies now drive agent decisions in the simulation loop via `_apply_firm_policy`, `_apply_bank_policy`, `_apply_govt_policy`
+- State builders: `build_macro_state`, `build_firm_state`, `build_bank_state`, `build_govt_state`
+- `run_simulation()` accepts optional policy arguments
 **Success criteria**: Current behavior preserved, policies swappable, all existing tests pass
 
 ---
@@ -128,14 +131,15 @@
 
 ## Current Status Summary
 - **Phases M0-M7**: Complete (core implementation)
+- **Phase M3**: Policy interfaces fully wired into engine loop
 - **Phase M8 (performance)**: Not started
 - **Phase M9 (platform)**: In progress (API done, dashboard pending)
-- **Tests**: 509 passing
+- **Tests**: 526 passing
 - **New modules**: data, measurement, policies, calibration, forecasting, learning
 
 ## Next Priority Actions
-1. Wire policy interfaces into simulation engine loop
-2. Run actual FRED data pulls and calibrate to US macro moments
-3. Profile and parallelize calibration/forecasting runs
-4. Build PyTorch transformer training for production
-5. Add forecast fan charts to dashboard
+1. Run actual FRED data pulls and calibrate to US macro moments
+2. Profile and parallelize calibration/forecasting runs
+3. Build PyTorch transformer training for production
+4. Add forecast fan charts to dashboard
+5. Wire household policy into goods market (consumption fraction)
