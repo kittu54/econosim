@@ -234,7 +234,7 @@
 - **Modern Next.js dashboard**: React + TypeScript + Tailwind CSS frontend (`web/`)
   - Dark theme with glass morphism, gradient accents, animated transitions
   - 6 KPI cards with sparkline mini-charts and trend deltas
-  - 5 tabbed views: Macro, Labor & Production, Government, Money & Credit, Data
+  - 7 tabbed views: Macro, Labor & Production, Government, Money & Credit, Extensions, Compare, Data
   - Interactive recharts-based charts with gradient fills, legends, and CI bands
   - Parameter control sidebar with scenario presets (Baseline, High Growth, Recession, Tight Money)
   - Collapsible sidebar with reset-to-defaults functionality
@@ -242,8 +242,30 @@
   - Animated welcome screen with feature cards
   - Column-selectable data table with CSV/JSON export
   - Responsive layout with staggered animations
+- **Phase 4 extension UI integration**:
+  - Extension toggle switches in sidebar (Adaptive Expectations, Network Tracking, Bond Market)
+  - Extensions tab with conditional sections: forecast error charts, network density/concentration/systemic risk, bond outstanding/flows/debt-to-GDP
+  - API exposes `extensions` parameter with 3 boolean feature flags
+- **Documentation page** (`/docs`):
+  - 13-section comprehensive reference with sidebar table-of-contents
+  - Covers architecture, agents, markets, accounting, simulation loop, policy/shocks, extensions, metrics, RL envs, experiments, API reference, full parameter guide
+  - Interactive accordions, code blocks, parameter tables, sensitivity tips
+  - Linked from landing page feature cards
+- **Top navigation bar**:
+  - Persistent sticky navbar with Dashboard and Documentation links
+  - Brand logo, active state indicators, version badge (494 tests)
+  - Glass morphism background
+- **Landing page redesign**:
+  - Feature cards now link to relevant docs sections (e.g., "RL-Ready" → /docs#rl)
+  - 3-step quick-start guide (configure → run → explore)
+  - Distinct color coding per feature card
+- **Scenario comparison UI**:
+  - Save simulation runs for later comparison (up to 5)
+  - Metric selector dropdown (10 key economic metrics)
+  - Overlay line chart comparing all saved runs with distinct colors/styles
+  - Saved runs management (list with remove buttons)
 - **FastAPI backend** (`api/main.py`): RESTful API serving simulation data
-  - `POST /api/simulate` — run simulation with custom config
+  - `POST /api/simulate` — run simulation with custom config (including extension flags)
   - `GET /api/defaults` — default config
   - `GET /api/health` — health check
   - CORS-enabled for cross-origin frontend
@@ -262,10 +284,24 @@
   - 14 new extension metrics added to `compute_period_metrics()`
   - 18 new integration tests verifying extensions work with core simulation
 
+**Comprehensive stress testing** (109 tests across 13 categories):
+- Baseline sanity (7): reproducibility, positive GDP, employment, prices, wages
+- Accounting invariants (6): balance sheets across 5 seeds, deposits tracking, budget identity, capital ratio
+- Extension combinations (10): all 8 flag combos, 200-period long run, baseline equivalence
+- Extreme parameters (22): single/many agents, zero/high deposits, min/max propensities, productivity extremes
+- Banking edge cases (5): high/low capital adequacy, interest rates, loan defaults
+- Government policy (8): zero/high spending, zero/high taxes, fiscal multiplier, money creation, transfers & inequality
+- Economic dynamics (4): productivity→GDP, consumption→GDP, population→GDP, demand→consumption
+- Shock responses (8): supply/demand/credit/fiscal shocks, simultaneous shocks, shocks with extensions
+- Scenario presets (4): baseline, high growth, recession, tight money
+- Batch run stability (3): multi-seed batch runs with and without extensions
+- Metric consistency (8): bounded metrics across 5 seeds, employment identity, wage-income consistency
+- Combined stress (8): recession+extensions, credit crunch, stagflation, everything-extreme, deflationary spiral, hyperinflation, 10-seed robustness
+- API simulation (3): run_experiment, run_batch, extensions via API path
+
 **Remaining work**:
 - **Data persistence**: Database storage for long runs
 - **Collaboration**: Shared scenarios, result sharing
-- **Scenario comparison UI**: Multi-run overlay charts
 
 **Key challenges**:
 - Scalability for concurrent users
@@ -278,12 +314,12 @@
 - **Phases 0-3c**: ✅ Complete (full RL training pipeline)
 - **Phase 4**: ✅ Complete (advanced economic extensions)
 - **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
-- **Tests**: 385 passing, 0 warnings
+- **Tests**: 494 passing, 0 warnings
 - **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
 - **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
 - **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence
+- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence, collaboration features
 
 ---
 

@@ -151,39 +151,37 @@ econosim/
 - [x] Fixed `inventory_asset` balance sheet bug
 - [x] Fixed delinquency threshold bug
 - [x] Added 78 new tests for agents and markets
+- [x] Integration of Phase 4 extensions into core simulation loop
+- [x] Phase 4 extension toggles in API and frontend sidebar
+- [x] Extensions tab (expectations, networks, bonds charts)
+- [x] Scenario comparison UI with multi-run overlay charts
 - [ ] Data persistence layer
-- [ ] Scenario comparison UI
-- [ ] Integration of Phase 4 extensions into core simulation loop
+- [ ] Collaboration (shared scenarios, result sharing)
 
 ---
 
 ## 4. What Is Currently In Progress
 
-- Integrating Phase 4 extensions (multi-sector, skills, bonds, expectations, networks) into the core simulation engine
 - Running RL training experiments with the new unified training pipeline
-- Platform enhancements (Phase 5)
+- Platform enhancements (Phase 5): data persistence, collaboration features
 
 ---
 
 ## 5. What Is Planned Next
 
 ### Near-term
-- Integrate Phase 4 extensions into core `simulation.py` step loop
 - Run RL training experiments and benchmark RL vs baseline policies
 - Longer-run calibration to reduce deflation bias
 - More scenario YAML files (demand shock, credit crunch, fiscal austerity)
+- Deploy to Vercel
 
 ### Integration priorities
 - Wire `InputOutputMatrix` into firm production decisions
 - Add `SkilledHousehold` / `SkilledFirm` to agent creation pipeline
-- Enable `BondMarket` as alternative to pure money creation
-- Attach `AgentExpectations` to firm pricing/hiring decisions
-- Record trade/credit flows in `TradeNetwork` / `CreditNetwork`
 
 ### Phase 5 remaining work
-- Data persistence layer
-- Scenario comparison UI in Next.js dashboard
-- Deploy to Vercel
+- Data persistence layer (database storage for long runs)
+- Collaboration features (shared scenarios, result sharing)
 
 ---
 
@@ -240,6 +238,7 @@ econosim/
 | `tests/test_bonds.py` | Bond market and debt management tests |
 | `tests/test_expectations.py` | Adaptive expectations tests |
 | `tests/test_networks.py` | Trade/credit network tests |
+| `tests/test_stress.py` | Comprehensive simulation stress tests (109 tests, 13 categories) |
 
 ---
 
@@ -306,7 +305,7 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 367 tests pass** with 0 warnings
+- **All 494 tests pass** with 0 warnings
 - Package installs via `pip install -e ".[dev,rl]"`
 - Python 3.11+ required
 - Simulation builds, runs, and produces metrics
@@ -671,3 +670,144 @@ econosim/
 - Tests reproducibility with extensions enabled
 
 **Tests**: 367 → 385 passing, 0 warnings
+
+---
+
+### Session 10 — 2026-03-16 (Phase 5: Extensions UI + Scenario Comparison)
+
+**Phase 4 Extensions Exposed in API & Frontend**:
+
+*API Changes (`api/main.py`)*:
+- Added `ExtensionParams` model with `enable_expectations`, `enable_networks`, `enable_bonds` boolean toggles
+- Added `extensions` field to `SimulationRequest` (defaults all off)
+- Extension flags passed through to `SimulationConfig` so the core engine activates them
+
+*Frontend Extensions Sidebar (`web/src/components/controls/Sidebar.tsx`)*:
+- New "Extensions" collapsible section with `Puzzle` icon
+- Toggle switch component with label, description, and animated on/off indicator
+- Three toggles: Adaptive Expectations, Network Tracking, Bond Market
+- Presets now include extensions spread for future extension-enabled presets
+
+*Frontend Types (`web/src/lib/types.ts`)*:
+- Added `ExtensionParams` interface
+- Added `extensions` field to `SimulationRequest` and `DEFAULT_CONFIG`
+- Added 13 optional extension metric fields to `PeriodData`: trade network density/concentration, credit network density/concentration/systemic risk, bond outstanding/interest/issued/redeemed/debt-to-GDP, price/demand forecast errors
+
+**Extensions Tab (`web/src/components/tabs/ExtensionsTab.tsx`)** — New:
+- Conditionally renders sections based on which extension metrics exist in data
+- **Adaptive Expectations**: Price forecast error chart, demand forecast error chart
+- **Network Effects**: Network density chart (trade + credit), market concentration HHI chart (seller + credit), systemic risk score chart
+- **Bond Market**: Bonds outstanding chart, debt-to-GDP ratio chart, bond flows chart (issued vs redeemed), bond interest expense chart
+- Shows informative "No extensions enabled" message when all toggles are off
+
+**Scenario Comparison Tab (`web/src/components/tabs/CompareTab.tsx`)** — New:
+- **Save runs**: Users can save the current simulation run for later comparison (up to 5 saved runs)
+- **Metric selector**: Dropdown with 10 key metrics (GDP, unemployment, prices, wages, Gini, loans, production, consumption, budget balance, bank capital ratio)
+- **Overlay chart**: Line chart overlaying all saved runs + current run with distinct colors and dash styles
+- **Saved runs list**: Visual list of saved runs with color indicators and remove buttons
+- Current run drawn with solid line, saved runs with dashed lines
+
+*Main Page Updates (`web/src/app/page.tsx`)*:
+- 7 tabbed views (was 5): added "Extensions" and "Compare" tabs
+- `savedRuns` state for storing comparison data
+- `handleSaveRun` callback saves current result data + config
+- Compare tab receives current data, saved runs, save/remove callbacks
+
+**Tests**: 385 passing, 0 warnings. Next.js build succeeds.
+
+---
+
+### Session 11 — 2026-03-16 (Comprehensive Simulation Stress Testing)
+
+**Goal**: Run exhaustive stress tests across all edge cases, parameter extremes, extension combinations, shock responses, and economic policy scenarios to validate the core simulation engine's soundness.
+
+**New test file**: `tests/test_stress.py` (109 tests across 13 categories)
+
+*Test Categories*:
+1. **Baseline Sanity** (7 tests): 120-period run, positive GDP, employment, nonzero prices/wages, reproducibility (same seed = same results), different seeds differ
+2. **Accounting Invariants** (6 tests): Balance sheets balanced across 5 seeds (1, 17, 42, 99, 12345), no negative deposits, bank capital ratio consistency, deposit tracking, government budget identity (tax - transfers - spending = balance), employment ≤ labor force
+3. **Extension Combinations** (10 tests): All 8 combinations of {expectations, networks, bonds} on/off, 200-period long run with all extensions, extensions-off equals baseline
+4. **Extreme Parameters** (22 tests): Single firm, 50 firms, single household, 500 households, zero/high initial deposits (HH and firm), min/max consumption propensity, zero wealth propensity, very high/low productivity, very high/low prices, very high/low wages, fast price/wage adjustment, 5-period and 500-period runs, very high/zero reservation wage
+5. **Banking Edge Cases** (5 tests): Very high/low capital adequacy ratio, very high/zero interest rates, loan defaults don't break accounting
+6. **Government Policy** (8 tests): Zero/high spending, zero/high tax rate, fiscal multiplier (higher spending → higher GDP), tax drag (higher taxes → lower consumption), sovereign money creation with zero initial deposits, generous transfers reduce inequality
+7. **Economic Dynamics** (4 tests): Higher productivity → higher GDP, higher consumption propensity → higher GDP, more households → higher GDP, higher demand → higher consumption, credit system functional
+8. **Shock Responses** (8 tests): Supply shock, demand shock reduces GDP, credit crunch, fiscal austerity reduces GDP, stimulus raises GDP, multiple simultaneous shocks, shocks with all extensions enabled
+9. **Scenario Presets** (4 tests): Baseline, high growth (higher GDP than baseline), recession (lower GDP), tight money
+10. **Batch Run Stability** (3 tests): 5-seed batch, 10-seed batch, batch with all extensions
+11. **Metric Consistency** (8 tests): All metrics bounded (5 seeds), GDP nonnegative, Gini in [0,1], unemployment in [0,1], employment identity, wage income positive when employed
+12. **Combined Stress** (8 tests): Recession + all extensions, credit crunch + extensions, stagflation (supply shock + loose fiscal), everything-extreme (all params extreme + all shocks + all extensions), deflationary death spiral handled, hyperinflation stable, 10-seed robustness sweep
+13. **API Simulation** (3 tests): run_experiment default, run_experiment with extensions, run_batch
+
+**Key Findings**:
+- **Accounting invariants are rock solid**: Balance sheets stay balanced across all scenarios — extreme parameters, shocks, extensions, combined stress
+- **No NaN or Inf values** in any metric under any tested scenario
+- **No negative deposits** anywhere — money conservation holds
+- **No crashes** — even with deflationary spirals, hyperinflation conditions, simultaneous shocks, extreme parameters
+- **Economic logic verified**: fiscal multiplier works, tax drag confirmed, productivity → GDP, demand → consumption, transfers reduce inequality
+- **Extensions integrate cleanly**: All 8 flag combinations work, 200-period long runs stable, extensions don't affect baseline when disabled
+- **All 4 dashboard presets** produce expected relative economic behavior
+
+**Model Observations** (not bugs — valid model characteristics):
+- Firms don't borrow much under default config — government spending provides sufficient demand without credit expansion
+- With very low demand, inventory goes to zero because firms rationally stop producing
+- Prices can fall even with money creation if supply-side productivity constraints dominate (low productivity → ample inventory → price adjustment lowers prices)
+- Gini coefficient is relatively insensitive to transfer amount when employment is high (transfers only go to unemployed)
+
+**Tests**: 385 → 494 passing, 0 warnings
+
+**New files**: `tests/test_stress.py` (1,087 lines, 109 tests)
+
+---
+
+### Session 12 — 2026-03-16 (Documentation Page, Navigation, Landing Redesign)
+
+**Goal**: Create comprehensive documentation page, add persistent navigation, redesign landing page to link feature cards to docs, and refine overall UI.
+
+**Documentation Page (`web/src/app/docs/page.tsx`)**:
+- 13-section comprehensive reference with sidebar table-of-contents:
+  1. Overview — platform summary, quick start, 4 key capability cards
+  2. Architecture — layer diagram, directory structure, design decisions accordion
+  3. Agents — Household (buffer-stock consumption), Firm (hiring/pricing/production), Bank (lending/defaults), Government (sovereign money/fiscal stabilizer)
+  4. Markets — Credit, Labor, Goods with clearing order explanation
+  5. Accounting — Account types table, money creation/destruction flows, transfer mechanism
+  6. Simulation Loop — All 13 sub-steps visualized as numbered cards
+  7. Policy & Shocks — 4 shock types with config examples
+  8. Extensions — Expectations, networks, bonds (integrated), multi-sector/skills (standalone)
+  9. Metrics — Formula reference table with dashboard tab mapping
+  10. RL Environments — 4 env cards with obs/action/reward specs, training pipeline commands
+  11. Experiments — Batch runs, parameter sweeps, scenario presets
+  12. API Reference — 3 endpoints with method badges and request body example
+  13. Parameter Guide — Full tables for all 4 agent types with defaults, ranges, descriptions, plus sensitivity tips
+- Reusable components: DocSection, Accordion, Code, CodeBlock, InfoCard, ParamTable
+- Sidebar tracks active section with scroll-to behavior
+
+**Top Navbar (`web/src/components/layout/Navbar.tsx`)**:
+- Persistent sticky navbar across all pages
+- Brand logo (gradient icon) + "EconoSim" text
+- Navigation links: Dashboard, Documentation — with active state highlighting
+- Version badge: "v0.5 — 494 tests"
+- Glass morphism background with border
+
+**Landing Page Redesign (`web/src/app/page.tsx`)**:
+- Feature cards now **link to docs sections** (e.g., "Double-Entry Accounting" → /docs#accounting)
+- Each card has distinct color coding per domain (emerald, amber, accent, indigo, violet, cyan, rose, teal)
+- Added **3-step quick-start guide**: configure → run → explore
+- "Full documentation" link header above feature grid
+- Updated test count: 208 → 494
+- Removed stale/unused imports
+- Improved error banner with icon indicator
+- Running indicator spinner shown during simulation
+
+**CSS Additions (`globals.css`)**:
+- `html { scroll-behavior: smooth }` for anchor link scrolling
+- Stagger animation delays extended to 8th child (was 6)
+
+**Root Layout (`layout.tsx`)**:
+- Added `<Navbar />` component to root layout (appears on all pages)
+
+**New files**:
+- `web/src/app/docs/page.tsx` — Documentation page (~650 lines)
+- `web/src/components/layout/Navbar.tsx` — Navigation bar
+
+**Build**: Next.js compiles successfully, both `/` and `/docs` routes render as static pages.
+
