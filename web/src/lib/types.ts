@@ -28,12 +28,6 @@ export interface BankParams {
   capital_adequacy_ratio: number;
 }
 
-export interface ExtensionParams {
-  enable_expectations: boolean;
-  enable_networks: boolean;
-  enable_bonds: boolean;
-}
-
 export interface SimulationRequest {
   num_periods: number;
   seed: number;
@@ -42,7 +36,6 @@ export interface SimulationRequest {
   firm: FirmParams;
   government: GovernmentParams;
   bank: BankParams;
-  extensions: ExtensionParams;
 }
 
 export interface PeriodData {
@@ -73,20 +66,6 @@ export interface PeriodData {
   inflation_rate?: number;
   gdp_growth?: number;
   velocity?: number;
-  // Extension metrics
-  trade_network_density?: number;
-  trade_network_concentration?: number;
-  trade_seller_concentration?: number;
-  credit_network_density?: number;
-  credit_network_concentration?: number;
-  credit_systemic_risk?: number;
-  bond_outstanding?: number;
-  bond_interest_expense?: number;
-  bond_issued?: number;
-  bond_redeemed?: number;
-  bond_debt_to_gdp?: number;
-  avg_price_forecast_error?: number;
-  avg_demand_forecast_error?: number;
   [key: string]: number | undefined;
 }
 
@@ -132,10 +111,5 @@ export const DEFAULT_CONFIG: SimulationRequest = {
   bank: {
     base_interest_rate: 0.005,
     capital_adequacy_ratio: 0.08,
-  },
-  extensions: {
-    enable_expectations: false,
-    enable_networks: false,
-    enable_bonds: false,
   },
 };

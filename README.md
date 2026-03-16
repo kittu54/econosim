@@ -101,14 +101,10 @@ Phase 4 extensions wire advanced economic realities into the core simulation loo
 
 ## Deployment
 
-Configured for **Vercel** serverless deployment. The Next.js frontend and FastAPI backend are built together via `vercel.json` rewrites.
-Since Vercel uses ephemeral file systems, you **must provide a Postgres connection string** (e.g. from Supabase) as an environment variable to use the persistence features.
+Configured for **Vercel** free-tier deployment:
 
 ```bash
-# 1. Provide your database connection string in Vercel settings or .env
-export DATABASE_URL="postgresql://user:pass@host:5432/db"
-
-# 2. Deploy to Vercel
+# Deploy to Vercel
 vercel
 ```
 

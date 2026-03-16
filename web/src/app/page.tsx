@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   BarChart3,
   HardHat,
@@ -28,9 +28,7 @@ import LaborTab from "@/components/tabs/LaborTab";
 import GovernmentTab from "@/components/tabs/GovernmentTab";
 import MoneyTab from "@/components/tabs/MoneyTab";
 import DataTab from "@/components/tabs/DataTab";
-import ExtensionsTab from "@/components/tabs/ExtensionsTab";
-import CompareTab, { SavedRun } from "@/components/tabs/CompareTab";
-import { runSimulation, saveRun, getRuns, deleteRun } from "@/lib/api";
+import { runSimulation } from "@/lib/api";
 import {
   SimulationRequest,
   SimulationResponse,
@@ -38,15 +36,13 @@ import {
 } from "@/lib/types";
 import { fmtNumber, fmtPercent, fmtDelta, fmtDeltaPercent } from "@/lib/format";
 
-type TabId = "macro" | "labor" | "government" | "money" | "extensions" | "compare" | "data";
+type TabId = "macro" | "labor" | "government" | "money" | "data";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "macro", label: "Macro", icon: <BarChart3 className="w-4 h-4" /> },
   { id: "labor", label: "Labor & Production", icon: <HardHat className="w-4 h-4" /> },
   { id: "government", label: "Government", icon: <Landmark className="w-4 h-4" /> },
   { id: "money", label: "Money & Credit", icon: <Coins className="w-4 h-4" /> },
-  { id: "extensions", label: "Extensions", icon: <Activity className="w-4 h-4" /> },
-  { id: "compare", label: "Compare", icon: <GitBranch className="w-4 h-4" /> },
   { id: "data", label: "Data", icon: <Table2 className="w-4 h-4" /> },
 ];
 
@@ -175,51 +171,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("macro");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [runCount, setRunCount] = useState(0);
-
-  // Scenario Comparison state (for now, just tracking these locally in memory)
-  const [savedRuns, setSavedRuns] = useState<SavedRun[]>([]);
-
-  const handleSaveRun = useCallback(
-    async (name: string) => {
-      if (result) {
-        try {
-          const newRun = await saveRun(
-            name,
-            result.config,
-            result.summary,
-            result.periods,
-            result.aggregate ? result.aggregate : null
-          );
-          setSavedRuns((prev) => [newRun, ...prev]);
-        } catch (err) {
-          console.error("Failed to save run to database", err);
-        }
-      }
-    },
-    [result]
-  );
-
-  const handleDeleteRun = useCallback(async (id: string) => {
-    try {
-      await deleteRun(id);
-      setSavedRuns((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error("Failed to delete run from database", err);
-    }
-  }, []);
-
-  // Fetch runs on initial load
-  useEffect(() => {
-    const fetchRuns = async () => {
-      try {
-        const runs = await getRuns();
-        setSavedRuns(runs);
-      } catch (err) {
-        console.error("Failed to fetch initial runs", err);
-      }
-    };
-    fetchRuns();
-  }, []);
 
   const handleRun = useCallback(async (config: SimulationRequest) => {
     setIsRunning(true);
@@ -426,17 +377,6 @@ export default function Dashboard() {
               )}
               {activeTab === "money" && (
                 <MoneyTab data={data} aggregate={aggregate} />
-              )}
-              {activeTab === "extensions" && (
-                <ExtensionsTab data={data} aggregate={aggregate} />
-              )}
-              {activeTab === "compare" && (
-                <CompareTab 
-                  savedRuns={savedRuns}
-                  onDeleteRun={handleDeleteRun}
-                  currentRun={result ? { id: "current", name: "Current Run", data: result.periods, config: result.config } : null}
-                  onSaveCurrentRun={handleSaveRun}
-                />
               )}
               {activeTab === "data" && (
                 <DataTab data={data} summary={result.summary} />
