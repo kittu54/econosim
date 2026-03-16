@@ -131,14 +131,13 @@
 
 ## Current Status Summary
 - **Phases M0-M7**: Complete (core implementation)
-- **Phase M3**: All four policy interfaces (firm, household, bank, govt) wired into engine, calibration, forecasting, and RL
+- **Phase M3**: All four policy interfaces wired into engine, calibration, forecasting, and RL
 - **Phase M8 (performance)**: Not started
-- **Phase M9 (platform)**: In progress (API done, dashboard pending)
-- **Tests**: 544 passing
+- **Phase M9 (platform)**: In progress — API done, dashboard with fan charts, FRED pipelines
+- **Tests**: 557 passing
 - **New modules**: data, measurement, policies, calibration, forecasting, learning, rl/macro_env
 
 ## Next Priority Actions
-1. Run actual FRED data pulls and calibrate to US macro moments
-2. Profile and parallelize calibration/forecasting runs
-3. Build PyTorch transformer training for production
-4. Add forecast fan charts to dashboard
+1. Profile and parallelize calibration/forecasting runs
+2. Build PyTorch transformer training for production
+3. Run FRED data pulls with real API key and calibrate to empirical moments

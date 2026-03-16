@@ -203,8 +203,31 @@
 - **544 tests passing** (526 existing + 18 new)
 - Zero regressions
 
+---
+
+## 2026-03-16 — Dashboard Fan Charts + FRED Data Pipelines
+
+### Changes
+- **`dashboard.py`**: New Forecasts tab with:
+  - Sidebar forecast controls (horizon, draws, scenario selector)
+  - `make_fan_chart()` function with graduated quantile bands (80% and 50% intervals)
+  - 7 fan chart variables (GDP, unemployment, price, inflation, credit, growth, inequality)
+  - Event probability KPI cards (P(Recession), P(High Inflation), etc.)
+  - History overlay on fan charts for context
+  - Forecast CSV download
+  - 4 built-in scenarios (baseline, recession, high_growth, tight_money)
+- **`data/pipelines.py`**: High-level FRED data pipeline:
+  - `pull_us_macro_baseline()` — pulls 10 core calibration series into aligned DataFrame
+  - `compute_calibration_moments()` — computes empirical moments matching calibration targets
+  - `pull_series()` — generic function for pulling arbitrary FRED series
+  - All functions handle API failures gracefully (return empty frames)
+- **`tests/test_data/test_pipelines.py`**: 13 tests with mocked FredClient
+
+### Test Results
+- **557 tests passing** (544 + 13 new)
+- Zero regressions
+
 ### Next Steps
-- Run actual FRED data pulls and calibrate to US macro moments
 - Profile and parallelize calibration/forecasting runs
 - Build PyTorch transformer training for production
-- Add forecast fan charts to dashboard
+- Run FRED data pulls with real API key and calibrate to empirical moments

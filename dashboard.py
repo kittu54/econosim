@@ -15,6 +15,9 @@ import numpy as np
 from econosim.config.schema import SimulationConfig
 from econosim.experiments.runner import run_experiment, run_batch
 from econosim.metrics.collector import enrich_dataframe, aggregate_runs, summary_statistics
+from econosim.forecasting.engine import (
+    ForecastConfig, ForecastEnsembleRunner, ScenarioSpec, DensityForecast,
+)
 
 # ── Page config ─────────────────────────────────────────────────────
 
@@ -136,8 +139,17 @@ with st.sidebar.expander("**Banking**"):
     base_rate = st.number_input("Base interest rate", 0.0, 0.05, 0.005, step=0.001, format="%.3f")
     car = st.slider("Capital adequacy ratio", 0.01, 0.20, 0.08, 0.01)
 
+with st.sidebar.expander("**Forecast**"):
+    fc_horizon = st.number_input("Forecast horizon", 5, 100, 24, step=5)
+    fc_param_draws = st.number_input("Parameter draws", 5, 200, 30, step=5)
+    fc_shock_draws = st.number_input("Shock draws per param", 1, 20, 5)
+    fc_burn_in = st.number_input("Burn-in periods", 5, 100, 20, step=5)
+    fc_scenario = st.selectbox("Scenario", ["baseline", "recession", "high_growth", "tight_money"])
+
 st.sidebar.divider()
 run_btn = st.sidebar.button("▶  Run Simulation", type="primary", use_container_width=True)
+forecast_btn = st.sidebar.button("🔮  Run Forecast", use_container_width=True,
+                                  help="Run probabilistic forecast from current config")
 
 # ── State management ────────────────────────────────────────────────
 
@@ -145,6 +157,7 @@ if "results" not in st.session_state:
     st.session_state.results = None
     st.session_state.agg = None
     st.session_state.config_used = None
+    st.session_state.forecast = None
 
 # ── Run simulation ──────────────────────────────────────────────────
 
@@ -192,6 +205,59 @@ if run_btn:
             st.session_state.agg = batch["aggregate"]
 
     st.session_state.config_used = config
+    st.session_state.forecast = None  # clear stale forecast
+
+# ── Run forecast ───────────────────────────────────────────────────
+
+if forecast_btn:
+    config = st.session_state.config_used
+    if config is None:
+        # Build config from sidebar params
+        config = SimulationConfig(
+            num_periods=num_periods, seed=seed,
+            household={"count": hh_count, "initial_deposits": hh_deposits,
+                        "consumption_propensity": consumption_propensity,
+                        "wealth_propensity": wealth_propensity,
+                        "reservation_wage": reservation_wage},
+            firm={"count": firm_count, "initial_deposits": firm_deposits,
+                  "initial_price": initial_price, "initial_wage": initial_wage,
+                  "labor_productivity": labor_productivity,
+                  "price_adjustment_speed": price_adj, "wage_adjustment_speed": wage_adj},
+            government={"income_tax_rate": tax_rate, "transfer_per_unemployed": transfer,
+                         "spending_per_period": govt_spending, "initial_deposits": govt_deposits},
+            bank={"base_interest_rate": base_rate, "capital_adequacy_ratio": car},
+        )
+
+    # Build scenario
+    scenario_map = {
+        "baseline": ScenarioSpec(name="baseline"),
+        "recession": ScenarioSpec(
+            name="recession",
+            parameter_overrides={"household.consumption_propensity": 0.5,
+                                  "firm.labor_productivity": 5.0}),
+        "high_growth": ScenarioSpec(
+            name="high_growth",
+            parameter_overrides={"household.consumption_propensity": 0.95,
+                                  "firm.labor_productivity": 12.0}),
+        "tight_money": ScenarioSpec(
+            name="tight_money",
+            parameter_overrides={"bank.base_interest_rate": 0.03}),
+    }
+    scenario = scenario_map.get(fc_scenario, ScenarioSpec(name=fc_scenario))
+
+    fc_config = ForecastConfig(
+        horizon=fc_horizon,
+        num_parameter_draws=fc_param_draws,
+        num_shock_draws=fc_shock_draws,
+        burn_in=fc_burn_in,
+        seed=seed,
+    )
+
+    with st.spinner(f"Running forecast: {fc_param_draws * fc_shock_draws} paths, horizon={fc_horizon}..."):
+        runner = ForecastEnsembleRunner(base_config=config)
+        forecast_result = runner.forecast(fc_config, scenario=scenario)
+
+    st.session_state.forecast = forecast_result
 
 # ── Dashboard Header ────────────────────────────────────────────────
 
@@ -367,11 +433,88 @@ def chart_row(charts: list[go.Figure]) -> None:
         col.plotly_chart(fig, use_container_width=True)
 
 
+# Fan chart bands: inner bands are darker, outer bands are lighter
+FAN_BANDS = [
+    (0.10, 0.90, "0.08"),   # 80% — lightest
+    (0.25, 0.75, "0.16"),   # 50%
+]
+
+
+def make_fan_chart(
+    fc: DensityForecast,
+    variable: str,
+    title: str,
+    color_key: str = "blue",
+    yaxis_fmt: str | None = None,
+    history_df: pd.DataFrame | None = None,
+) -> go.Figure:
+    """Create a fan chart from a DensityForecast.
+
+    Renders graduated quantile bands (lightest=outer) with median line.
+    Optionally prepends historical data for context.
+    """
+    fig = go.Figure()
+    color = COLORS.get(color_key, color_key)
+
+    # X-axis: forecast periods
+    x_fc = list(range(1, fc.horizon + 1))
+    x_offset = 0
+
+    # Prepend history if available
+    if history_df is not None and variable in history_df.columns:
+        hist_vals = history_df[variable].values
+        n_hist = min(len(hist_vals), 30)  # show last 30 periods max
+        hist_slice = hist_vals[-n_hist:]
+        x_hist = list(range(-n_hist + 1, 1))
+        fig.add_trace(go.Scatter(
+            x=x_hist, y=hist_slice,
+            mode="lines", line=dict(color=COLORS["slate"], width=2),
+            name="History",
+        ))
+        # Vertical line at forecast start
+        fig.add_vline(x=0.5, line_dash="dash", line_color="#94a3b8", line_width=1)
+
+    # Fan bands (outer first, so inner draws on top)
+    if variable in fc.quantiles:
+        for q_lo, q_hi, alpha in FAN_BANDS:
+            lo = fc.quantiles[variable].get(q_lo)
+            hi = fc.quantiles[variable].get(q_hi)
+            if lo is not None and hi is not None:
+                fill_rgba = _hex_to_rgba(color, alpha)
+                fig.add_trace(go.Scatter(
+                    x=x_fc, y=hi.tolist(),
+                    mode="lines", line=dict(width=0),
+                    showlegend=False, hoverinfo="skip",
+                ))
+                fig.add_trace(go.Scatter(
+                    x=x_fc, y=lo.tolist(),
+                    mode="lines", line=dict(width=0),
+                    fill="tonexty", fillcolor=fill_rgba,
+                    name=f"{int(q_lo*100)}-{int(q_hi*100)}%",
+                ))
+
+    # Median line
+    median = fc.median_path(variable)
+    if len(median) > 0:
+        fig.add_trace(go.Scatter(
+            x=x_fc, y=median.tolist(),
+            mode="lines", line=dict(color=color, width=3),
+            name="Median",
+        ))
+
+    layout = {**CHART_LAYOUT, "title": title}
+    layout["xaxis"] = {**layout.get("xaxis", {}), "title": "Forecast Period"}
+    if yaxis_fmt:
+        layout["yaxis"] = {**layout.get("yaxis", {}), "tickformat": yaxis_fmt}
+    fig.update_layout(**layout)
+    return fig
+
+
 # ── Tabs ────────────────────────────────────────────────────────────
 
-tab_macro, tab_labor, tab_fiscal, tab_money, tab_data = st.tabs([
+tab_macro, tab_labor, tab_fiscal, tab_money, tab_forecast, tab_data = st.tabs([
     "📈  Macro", "👷  Labor & Production", "🏛️  Government",
-    "💰  Money & Credit", "📋  Data",
+    "💰  Money & Credit", "🔮  Forecasts", "📋  Data",
 ])
 
 # ── Macro tab ───────────────────────────────────────────────────────
@@ -469,6 +612,57 @@ with tab_money:
         make_chart([("velocity", "Velocity", "purple")],
                    "Velocity of Money (GDP / Deposits)"),
     ])
+
+# ── Forecast tab ───────────────────────────────────────────────────
+
+with tab_forecast:
+    fc = st.session_state.get("forecast")
+    if fc is None:
+        st.info("Click **Run Forecast** in the sidebar to generate probabilistic forecasts with fan charts.")
+    else:
+        st.markdown(f"### Forecast: **{fc.scenario_name}**  |  "
+                    f"Horizon: {fc.horizon}  |  Paths: {fc.num_paths}  |  "
+                    f"Time: {fc.elapsed_seconds:.1f}s")
+
+        # Event probability KPIs
+        if fc.event_probs:
+            prob_cols = st.columns(min(len(fc.event_probs), 4))
+            for i, (event, prob) in enumerate(fc.event_probs.items()):
+                label = event.replace("_", " ").replace("probability", "").strip().title()
+                prob_cols[i % len(prob_cols)].metric(f"P({label})", f"{prob:.1%}")
+            st.markdown("")
+
+        # Fan charts — 2 per row
+        fc_vars = [
+            ("gdp", "GDP Forecast", "blue", None),
+            ("unemployment_rate", "Unemployment Forecast", "rose", ".0%"),
+            ("avg_price", "Price Level Forecast", "amber", None),
+            ("inflation_rate", "Inflation Forecast", "emerald", ".1%"),
+            ("total_loans_outstanding", "Credit Forecast", "indigo", None),
+            ("gdp_growth", "GDP Growth Forecast", "teal", ".1%"),
+            ("gini_deposits", "Inequality Forecast", "purple", None),
+        ]
+
+        hist_df = df if st.session_state.results is not None else None
+        charts_to_show = [(v, t, c, f) for v, t, c, f in fc_vars if v in fc.paths]
+
+        for i in range(0, len(charts_to_show), 2):
+            pair = charts_to_show[i:i+2]
+            cols = st.columns(len(pair))
+            for col, (var, title, color, fmt) in zip(cols, pair):
+                fig = make_fan_chart(fc, var, title, color, fmt, history_df=hist_df)
+                col.plotly_chart(fig, use_container_width=True)
+
+        # Forecast data export
+        st.markdown("---")
+        fc_df = fc.to_dataframe()
+        if not fc_df.empty:
+            st.download_button(
+                "📥  Download Forecast CSV",
+                fc_df.to_csv(index=False),
+                "econosim_forecast.csv",
+                "text/csv",
+            )
 
 # ── Data tab ────────────────────────────────────────────────────────
 
