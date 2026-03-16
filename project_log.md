@@ -176,9 +176,35 @@
 - **526 tests passing** (509 existing + 17 new)
 - Zero regressions across all stress tests, accounting tests, and extension tests
 
+---
+
+## 2026-03-16 — Full Policy Pipeline: Household, Calibration, Forecasting, RL
+
+### Changes
+- **`markets/goods.py`**: Added `consumption_budgets` parameter to `clear()` — household policy can override `desired_consumption()`
+- **`engine/simulation.py`**: Added `build_household_state()`, `_compute_household_budgets()`, wired into goods market call
+- **`calibration/engine.py`**: `SimulationObjective` accepts `policies` dict, creates policy-aware sim runner via `_make_policy_runner()`
+- **`forecasting/engine.py`**: `ForecastEnsembleRunner` accepts `policies` dict, creates policy-aware runner
+- **`rl/macro_env.py`**: New concrete `MacroEnv` environment (Gymnasium-compatible, no gymnasium dependency):
+  - Three roles: government, bank, firm
+  - One-step policy wrappers (`_OneStepGovtPolicy`, etc.)
+  - Default reward: GDP growth - 0.5 * unemployment
+  - `to_flat_obs()` for RL algorithm compatibility
+- **`rl/__init__.py`**: Lazy imports for gymnasium-dependent envs, avoiding import errors for non-RL users
+- **`tests/test_policy_pipeline.py`**: 18 new tests covering household policies, calibration with policies, forecasting with policies, RL env (all 3 roles), and end-to-end calibrate→forecast pipeline
+
+### Design Decisions
+1. **Household policy via budget override**: Rather than modifying the Household class, goods market accepts pre-computed budgets
+2. **Policy-aware sim runners**: Calibration and forecasting engines create internal runners that pass policies to the simulation state
+3. **MacroEnv without gymnasium**: Uses the existing `EconEnvInterface` ABC. No gymnasium import needed. Can still be wrapped by gymnasium if available
+4. **Lazy rl imports**: `rl/__init__.py` uses `__getattr__` for gymnasium-dependent modules, preventing import errors
+
+### Test Results
+- **544 tests passing** (526 existing + 18 new)
+- Zero regressions
+
 ### Next Steps
 - Run actual FRED data pulls and calibrate to US macro moments
 - Profile and parallelize calibration/forecasting runs
 - Build PyTorch transformer training for production
 - Add forecast fan charts to dashboard
-- Wire household policy into goods market (consumption fraction)

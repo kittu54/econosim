@@ -97,14 +97,20 @@ class SimulationObjective:
         moments: MomentSet,
         profile: CalibrationProfile,
         sim_runner: Callable[[SimulationConfig], pd.DataFrame] | None = None,
+        policies: dict[str, Any] | None = None,
     ) -> None:
         self.base_config = base_config
         self.registry = registry
         self.moments = moments
         self.profile = profile
-        self._sim_runner = sim_runner or _default_sim_runner
+        self.policies = policies or {}
+        self._sim_runner = sim_runner or self._make_policy_runner()
         self._eval_count = 0
         self._W = moments.weighting_matrix(profile.weighting_method)
+
+        # Override sim_runner if user provided one explicitly
+        if sim_runner is not None:
+            self._sim_runner = sim_runner
 
         # Pre-generate seeds for common random numbers
         if profile.use_common_random_numbers:
@@ -115,6 +121,25 @@ class SimulationObjective:
                 profile.seed_base,
                 profile.seed_base + profile.num_simulations,
             ))
+
+    def _make_policy_runner(self) -> Callable[[SimulationConfig], pd.DataFrame]:
+        """Create a sim runner that passes policies to the simulation."""
+        policies = self.policies
+
+        def runner(config: SimulationConfig) -> pd.DataFrame:
+            from econosim.engine.simulation import build_simulation, step
+            from econosim.metrics.collector import history_to_dataframe, enrich_dataframe
+
+            state = build_simulation(config)
+            state.firm_policy = policies.get("firm_policy")
+            state.household_policy = policies.get("household_policy")
+            state.bank_policy = policies.get("bank_policy")
+            state.government_policy = policies.get("government_policy")
+            for _ in range(config.num_periods):
+                step(state)
+            return enrich_dataframe(history_to_dataframe(state.history))
+
+        return runner
 
     def _apply_params(self, param_dict: dict[str, float]) -> SimulationConfig:
         """Apply calibrated parameters to base config."""

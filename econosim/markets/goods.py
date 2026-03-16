@@ -35,6 +35,7 @@ class GoodsMarket:
         firms: list[Firm],
         period: int,
         rng: np.random.Generator,
+        consumption_budgets: dict[str, float] | None = None,
     ) -> None:
         """Run goods market clearing for one period.
 
@@ -43,6 +44,9 @@ class GoodsMarket:
         2. Each firm offers inventory at posted price
         3. Proportional rationing across firms if needed
         4. Settle transactions via ledger
+
+        If consumption_budgets is provided (agent_id -> spending amount),
+        those override the household's own desired_consumption() call.
         """
         self.total_demand = 0.0
         self.total_supply = 0.0
@@ -67,7 +71,10 @@ class GoodsMarket:
         # Collect demand: each household decides spending
         buyer_demand: list[tuple[Household, float]] = []
         for hh in households:
-            desired_spending = hh.desired_consumption()
+            if consumption_budgets is not None and hh.agent_id in consumption_budgets:
+                desired_spending = consumption_budgets[hh.agent_id]
+            else:
+                desired_spending = hh.desired_consumption()
             if desired_spending > 0.01:
                 buyer_demand.append((hh, desired_spending))
                 self.total_demand += desired_spending

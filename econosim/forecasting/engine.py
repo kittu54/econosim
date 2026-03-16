@@ -178,10 +178,35 @@ class ForecastEnsembleRunner:
         base_config: SimulationConfig,
         calibration_result: CalibrationResult | None = None,
         sim_runner: Callable[[SimulationConfig], pd.DataFrame] | None = None,
+        policies: dict[str, Any] | None = None,
     ) -> None:
         self.base_config = base_config
         self.calibration = calibration_result
-        self._sim_runner = sim_runner or _default_forecast_runner
+        self.policies = policies or {}
+        self._sim_runner = sim_runner or self._make_policy_runner()
+
+        # Override if user provided explicit runner
+        if sim_runner is not None:
+            self._sim_runner = sim_runner
+
+    def _make_policy_runner(self) -> Callable[[SimulationConfig], pd.DataFrame]:
+        """Create a sim runner that passes policies to the simulation."""
+        policies = self.policies
+
+        def runner(config: SimulationConfig) -> pd.DataFrame:
+            from econosim.engine.simulation import build_simulation, step
+            from econosim.metrics.collector import history_to_dataframe, enrich_dataframe
+
+            state = build_simulation(config)
+            state.firm_policy = policies.get("firm_policy")
+            state.household_policy = policies.get("household_policy")
+            state.bank_policy = policies.get("bank_policy")
+            state.government_policy = policies.get("government_policy")
+            for _ in range(config.num_periods):
+                step(state)
+            return enrich_dataframe(history_to_dataframe(state.history))
+
+        return runner
 
     def forecast(
         self,

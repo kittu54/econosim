@@ -345,6 +345,36 @@ def build_govt_state(govt: Government) -> GovernmentState:
     )
 
 
+def build_household_state(hh: Household) -> HouseholdState:
+    """Build a HouseholdState observation from a household agent."""
+    return HouseholdState(
+        deposits=hh.deposits,
+        employed=hh.employed,
+        wage_income=hh.wage_income,
+        consumption_spending=hh.consumption_spending,
+        total_debt=hh.total_debt,
+        consumption_propensity=hh.consumption_propensity,
+        wealth_propensity=hh.wealth_propensity,
+        reservation_wage=hh.reservation_wage,
+    )
+
+
+def _compute_household_budgets(state: SimulationState, macro: MacroState) -> dict[str, float] | None:
+    """If household policy is set, compute consumption budgets for all households."""
+    policy = state.household_policy
+    if policy is None:
+        return None
+
+    budgets: dict[str, float] = {}
+    for hh in state.households:
+        hs = build_household_state(hh)
+        action = policy.act(hs, macro)
+        # Compute budget from consumption fraction
+        budget = action.consumption_fraction * max(0.0, hh.deposits)
+        budgets[hh.agent_id] = min(budget, max(0.0, hh.deposits))
+    return budgets
+
+
 def _apply_firm_policy(state: SimulationState, macro: MacroState) -> None:
     """Apply firm policy actions: set vacancies and price adjustments."""
     policy = state.firm_policy
@@ -459,11 +489,15 @@ def step(state: SimulationState) -> dict[str, Any]:
         for firm in state.firms:
             firm.adjust_price()
 
+    # Compute household consumption budgets from policy (if active)
+    hh_budgets = _compute_household_budgets(state, macro)
+
     state.goods_market.clear(
         households=state.households,
         firms=state.firms,
         period=period,
         rng=state.rng,
+        consumption_budgets=hh_budgets,
     )
 
     # Record trade flows in network (aggregate firm sales this period)
