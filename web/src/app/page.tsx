@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   BarChart3,
   HardHat,
@@ -13,11 +14,16 @@ import {
   Scale,
   CreditCard,
   Zap,
-  ArrowRight,
   Cpu,
   GitBranch,
-  BookOpen,
   TrendingUp,
+  ArrowRight,
+  PlayCircle,
+  BookOpen,
+  Layers,
+  Factory,
+  Building2,
+  Repeat,
 } from "lucide-react";
 import clsx from "clsx";
 import Sidebar from "@/components/controls/Sidebar";
@@ -35,7 +41,6 @@ import {
   SimulationRequest,
   SimulationResponse,
   PeriodData,
-  DEFAULT_CONFIG,
 } from "@/lib/types";
 import { fmtNumber, fmtPercent, fmtDelta, fmtDeltaPercent } from "@/lib/format";
 
@@ -51,123 +56,198 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "data", label: "Data", icon: <Table2 className="w-4 h-4" /> },
 ];
 
-function WelcomeScreen() {
-  const features = [
-    {
-      icon: <DollarSign className="w-5 h-5" />,
-      label: "Double-Entry Accounting",
-      desc: "Every flow is balanced A-L=E",
-    },
-    {
-      icon: <Zap className="w-5 h-5" />,
-      label: "Sovereign Money",
-      desc: "MMT/SFC endogenous money",
-    },
-    {
-      icon: <Users className="w-5 h-5" />,
-      label: "4 Agent Types",
-      desc: "Households, firms, banks, gov",
-    },
-    {
-      icon: <Activity className="w-5 h-5" />,
-      label: "Real-Time Charts",
-      desc: "Interactive Recharts visuals",
-    },
-    {
-      icon: <Scale className="w-5 h-5" />,
-      label: "Inequality Tracking",
-      desc: "Gini coefficient monitoring",
-    },
-    {
-      icon: <CreditCard className="w-5 h-5" />,
-      label: "Credit Markets",
-      desc: "Bank lending creates deposits",
-    },
-    {
-      icon: <Cpu className="w-5 h-5" />,
-      label: "RL-Ready",
-      desc: "Gymnasium & PettingZoo envs",
-    },
-    {
-      icon: <GitBranch className="w-5 h-5" />,
-      label: "Batch Analysis",
-      desc: "Multi-seed runs with CI bands",
-    },
-  ];
+/* ──────────────────────────────────────────────
+   Feature cards — each links to a docs section
+   ────────────────────────────────────────────── */
 
+const FEATURES = [
+  {
+    icon: <DollarSign className="w-5 h-5" />,
+    label: "Double-Entry Accounting",
+    desc: "Every flow tracked via A-L=E balance sheets",
+    href: "/docs#accounting",
+    color: "emerald",
+  },
+  {
+    icon: <Zap className="w-5 h-5" />,
+    label: "Endogenous Money",
+    desc: "Bank loans create deposits, repayment destroys them",
+    href: "/docs#accounting",
+    color: "amber",
+  },
+  {
+    icon: <Users className="w-5 h-5" />,
+    label: "4 Agent Types",
+    desc: "Households, firms, banks, and government",
+    href: "/docs#agents",
+    color: "accent",
+  },
+  {
+    icon: <Repeat className="w-5 h-5" />,
+    label: "10-Step Simulation",
+    desc: "Strict ordering: credit → labor → production → goods",
+    href: "/docs#simulation",
+    color: "indigo",
+  },
+  {
+    icon: <Scale className="w-5 h-5" />,
+    label: "Inequality & Metrics",
+    desc: "GDP, Gini, inflation, unemployment — all tracked",
+    href: "/docs#metrics",
+    color: "violet",
+  },
+  {
+    icon: <CreditCard className="w-5 h-5" />,
+    label: "Credit & Banking",
+    desc: "Loan approval, capital adequacy, defaults",
+    href: "/docs#markets",
+    color: "cyan",
+  },
+  {
+    icon: <Cpu className="w-5 h-5" />,
+    label: "RL-Ready",
+    desc: "Gymnasium & PettingZoo envs for all agent types",
+    href: "/docs#rl",
+    color: "rose",
+  },
+  {
+    icon: <GitBranch className="w-5 h-5" />,
+    label: "Experiments",
+    desc: "Batch runs, parameter sweeps, CI bands",
+    href: "/docs#experiments",
+    color: "teal",
+  },
+];
+
+const FEATURE_COLORS: Record<string, { icon: string; border: string; bg: string }> = {
+  emerald: { icon: "text-emerald-400", border: "hover:border-emerald-500/30", bg: "hover:bg-emerald-500/5" },
+  amber: { icon: "text-amber-400", border: "hover:border-amber-500/30", bg: "hover:bg-amber-500/5" },
+  accent: { icon: "text-accent", border: "hover:border-accent/30", bg: "hover:bg-accent/5" },
+  indigo: { icon: "text-indigo-400", border: "hover:border-indigo-500/30", bg: "hover:bg-indigo-500/5" },
+  violet: { icon: "text-violet-400", border: "hover:border-violet-500/30", bg: "hover:bg-violet-500/5" },
+  cyan: { icon: "text-cyan-400", border: "hover:border-cyan-500/30", bg: "hover:bg-cyan-500/5" },
+  rose: { icon: "text-rose-400", border: "hover:border-rose-500/30", bg: "hover:bg-rose-500/5" },
+  teal: { icon: "text-teal-400", border: "hover:border-teal-500/30", bg: "hover:bg-teal-500/5" },
+};
+
+/* ──────────────────────────────────────────────
+   Welcome / Landing Screen
+   ────────────────────────────────────────────── */
+
+function WelcomeScreen() {
   return (
-    <div className="flex items-center justify-center min-h-[85vh] px-6">
-      <div className="max-w-3xl w-full text-center space-y-10 animate-fade-in">
-        {/* Hero icon */}
-        <div className="flex justify-center">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 flex items-center justify-center shadow-2xl animate-float">
-              <Landmark className="w-10 h-10 text-white" />
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-3rem)] px-6 py-12">
+      <div className="max-w-4xl w-full space-y-12 animate-fade-in">
+        {/* Hero */}
+        <div className="text-center space-y-5">
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 flex items-center justify-center shadow-2xl animate-float">
+                <Landmark className="w-8 h-8 text-white" />
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent to-accent-2 blur-xl opacity-20 animate-pulse-glow" />
             </div>
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent to-accent-2 blur-xl opacity-20 animate-pulse-glow" />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+              EconoSim Dashboard
+            </h1>
+            <p className="text-sm md:text-base text-muted leading-relaxed max-w-lg mx-auto">
+              Multi-agent economic simulation with stock-flow consistent accounting.
+              Watch macroeconomic dynamics emerge from micro-level agent interactions.
+            </p>
           </div>
         </div>
 
-        {/* Title */}
+        {/* Quick-start steps */}
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <PlayCircle className="w-4 h-4 text-accent" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Quick Start</h2>
+          </div>
+          <div className="space-y-2">
+            {[
+              { step: "1", text: "Configure parameters in the sidebar", sub: "or choose a preset: Baseline, High Growth, Recession, Tight Money" },
+              { step: "2", text: "Click Run Simulation", sub: "the API runs the engine and returns period-by-period results" },
+              { step: "3", text: "Explore results across 7 tabs", sub: "Macro, Labor, Government, Money, Extensions, Compare, Data" },
+            ].map((s) => (
+              <div key={s.step} className="flex items-start gap-3 p-3 rounded-xl bg-surface/40 border border-border/50 group hover:border-accent/20 transition-colors">
+                <span className="shrink-0 w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-bold flex items-center justify-center group-hover:bg-accent/15 transition-colors">
+                  {s.step}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{s.text}</p>
+                  <p className="text-xs text-muted mt-0.5">{s.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Feature grid — linked to docs */}
         <div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 bg-gradient-to-r from-foreground via-foreground to-muted bg-clip-text">
-            EconoSim Dashboard
-          </h1>
-          <p className="text-base md:text-lg text-muted leading-relaxed max-w-xl mx-auto">
-            Multi-agent economic simulation with stock-flow consistent
-            accounting. Watch macroeconomic dynamics emerge from micro-level
-            agent interactions.
-          </p>
-        </div>
-
-        {/* Feature grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 max-w-2xl mx-auto stagger-children">
-          {features.map((f) => (
-            <div
-              key={f.label}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-surface/40 backdrop-blur-sm p-4
-                         hover:border-accent/30 hover:bg-accent/5 transition-all duration-300 group animate-fade-in-scale"
-              style={{ opacity: 0 }}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Core Features</h2>
+            <Link
+              href="/docs"
+              className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors"
             >
-              <span className="text-muted group-hover:text-accent transition-colors">
-                {f.icon}
-              </span>
-              <span className="text-[11px] font-semibold text-foreground">
-                {f.label}
-              </span>
-              <span className="text-[10px] text-muted leading-snug">
-                {f.desc}
-              </span>
-            </div>
-          ))}
+              Full documentation <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 stagger-children">
+            {FEATURES.map((f) => {
+              const colors = FEATURE_COLORS[f.color] || FEATURE_COLORS.accent;
+              return (
+                <Link
+                  key={f.label}
+                  href={f.href}
+                  className={clsx(
+                    "flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-surface/40 backdrop-blur-sm p-4",
+                    "transition-all duration-300 group animate-fade-in-scale",
+                    colors.border,
+                    colors.bg
+                  )}
+                  style={{ opacity: 0 }}
+                >
+                  <span className={clsx("transition-colors", "text-muted", `group-hover:${colors.icon}`)}>
+                    <span className={clsx("block", colors.icon)}>
+                      {f.icon}
+                    </span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-foreground text-center leading-tight">
+                    {f.label}
+                  </span>
+                  <span className="text-[10px] text-muted leading-snug text-center">
+                    {f.desc}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
-        {/* CTA hint */}
-        <div className="flex items-center justify-center gap-2 text-sm text-muted">
-          <ArrowRight className="w-4 h-4 text-accent animate-pulse" />
-          <p>
-            Configure parameters in the sidebar and click{" "}
-            <span className="font-semibold text-accent">Run Simulation</span>
-          </p>
-        </div>
-
-        {/* Architecture hint */}
-        <div className="flex items-center justify-center gap-6 text-[10px] text-muted-2 uppercase tracking-wider">
+        {/* Footer info bar */}
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[10px] text-muted-2 uppercase tracking-wider">
           <span className="flex items-center gap-1.5">
             <BookOpen className="w-3 h-3" />
-            208 Tests
+            494 Tests
           </span>
-          <span className="w-1 h-1 rounded-full bg-muted-2" />
+          <span className="hidden sm:block w-1 h-1 rounded-full bg-muted-2" />
           <span>Next.js + FastAPI</span>
-          <span className="w-1 h-1 rounded-full bg-muted-2" />
+          <span className="hidden sm:block w-1 h-1 rounded-full bg-muted-2" />
           <span>Gymnasium RL</span>
-          <span className="w-1 h-1 rounded-full bg-muted-2" />
+          <span className="hidden sm:block w-1 h-1 rounded-full bg-muted-2" />
           <span>SFC Accounting</span>
         </div>
       </div>
     </div>
   );
 }
+
+/* ──────────────────────────────────────────────
+   Dashboard
+   ────────────────────────────────────────────── */
 
 export default function Dashboard() {
   const [result, setResult] = useState<SimulationResponse | null>(null);
@@ -234,7 +314,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen relative z-10">
+    <div className="flex min-h-[calc(100vh-3rem)] relative z-10">
       <Sidebar
         onRun={handleRun}
         isRunning={isRunning}
@@ -245,8 +325,11 @@ export default function Dashboard() {
       <main className="flex-1 overflow-y-auto">
         {/* Error banner */}
         {error && (
-          <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm animate-fade-in">
-            <strong>Error:</strong> {error}
+          <div className="mx-6 mt-4 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm animate-fade-in flex items-start gap-2">
+            <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-danger/20 flex items-center justify-center text-[10px] font-bold">!</span>
+            <div>
+              <strong>Error:</strong> {error}
+            </div>
           </div>
         )}
 
@@ -260,12 +343,20 @@ export default function Dashboard() {
         {result && (
           <div className="p-6 space-y-5">
             {/* Run indicator */}
-            <div className="flex items-center gap-2 text-[11px] text-muted">
-              <TrendingUp className="w-3.5 h-3.5 text-accent" />
-              <span>
-                Run #{runCount} &middot; {data.length} periods &middot;{" "}
-                {result.has_ci ? "Batch (CI bands)" : "Single run"}
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] text-muted">
+                <TrendingUp className="w-3.5 h-3.5 text-accent" />
+                <span>
+                  Run #{runCount} &middot; {data.length} periods &middot;{" "}
+                  {result.has_ci ? "Batch (CI bands)" : "Single run"}
+                </span>
+              </div>
+              {isRunning && (
+                <div className="flex items-center gap-2 text-[11px] text-accent">
+                  <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                  <span>Running...</span>
+                </div>
+              )}
             </div>
 
             {/* KPI Row */}
