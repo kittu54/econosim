@@ -18,6 +18,7 @@ import {
   Zap,
   TrendingDown,
   Shield,
+  Puzzle,
 } from "lucide-react";
 import clsx from "clsx";
 import { SimulationRequest, DEFAULT_CONFIG } from "@/lib/types";
@@ -106,6 +107,42 @@ function SliderInput({
         className="w-full"
       />
     </div>
+  );
+}
+
+interface ToggleProps {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}
+
+function Toggle({ label, description, checked, onChange }: ToggleProps) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between gap-2 w-full text-left"
+    >
+      <div>
+        <span className="text-[11px] text-muted">{label}</span>
+        {description && (
+          <span className="block text-[9px] text-muted-2">{description}</span>
+        )}
+      </div>
+      <div
+        className={clsx(
+          "w-8 h-[18px] rounded-full transition-colors duration-200 relative flex-shrink-0",
+          checked ? "bg-accent" : "bg-surface-2"
+        )}
+      >
+        <div
+          className={clsx(
+            "absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform duration-200 shadow-sm",
+            checked ? "translate-x-[16px]" : "translate-x-[2px]"
+          )}
+        />
+      </div>
+    </button>
   );
 }
 
@@ -224,6 +261,11 @@ export default function Sidebar({
     }));
   const updateBank = (key: string, value: number) =>
     setConfig((c) => ({ ...c, bank: { ...c.bank, [key]: value } }));
+  const updateExtensions = (key: string, value: boolean) =>
+    setConfig((c) => ({
+      ...c,
+      extensions: { ...c.extensions, [key]: value },
+    }));
 
   const applyPreset = (preset: (typeof PRESETS)[number]) => {
     setConfig((c) => ({
@@ -233,6 +275,7 @@ export default function Sidebar({
       firm: { ...c.firm, ...preset.config.firm },
       government: { ...c.government, ...preset.config.government },
       bank: { ...c.bank, ...preset.config.bank },
+      extensions: { ...c.extensions, ...preset.config.extensions },
     }));
   };
 
@@ -498,6 +541,30 @@ export default function Sidebar({
             min={10000}
             max={1000000}
             step={10000}
+          />
+        </Section>
+
+        <Section
+          title="Extensions"
+          icon={<Puzzle className="w-3.5 h-3.5 text-violet-400" />}
+        >
+          <Toggle
+            label="Adaptive Expectations"
+            description="Firms learn from past prices & demand"
+            checked={config.extensions.enable_expectations}
+            onChange={(v) => updateExtensions("enable_expectations", v)}
+          />
+          <Toggle
+            label="Network Tracking"
+            description="Trade & credit relationship graphs"
+            checked={config.extensions.enable_networks}
+            onChange={(v) => updateExtensions("enable_networks", v)}
+          />
+          <Toggle
+            label="Bond Market"
+            description="Government debt instruments"
+            checked={config.extensions.enable_bonds}
+            onChange={(v) => updateExtensions("enable_bonds", v)}
           />
         </Section>
 

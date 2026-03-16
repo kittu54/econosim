@@ -63,6 +63,12 @@ class BankParams(BaseModel):
     capital_adequacy_ratio: float = 0.08
 
 
+class ExtensionParams(BaseModel):
+    enable_expectations: bool = False
+    enable_networks: bool = False
+    enable_bonds: bool = False
+
+
 class SimulationRequest(BaseModel):
     num_periods: int = Field(60, ge=5, le=500)
     seed: int = Field(42, ge=0, le=99999)
@@ -71,6 +77,7 @@ class SimulationRequest(BaseModel):
     firm: FirmParams = Field(default_factory=FirmParams)
     government: GovernmentParams = Field(default_factory=GovernmentParams)
     bank: BankParams = Field(default_factory=BankParams)
+    extensions: ExtensionParams = Field(default_factory=ExtensionParams)
 
 
 class SimulationResponse(BaseModel):
@@ -107,6 +114,7 @@ def simulate(req: SimulationRequest):
             firm=req.firm.model_dump(),
             government=req.government.model_dump(),
             bank=req.bank.model_dump(),
+            extensions=req.extensions.model_dump(),
         )
 
         if req.n_seeds == 1:
