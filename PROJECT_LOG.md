@@ -144,24 +144,24 @@ econosim/
 - [x] Trade/credit network effects with contagion analysis (`econosim/extensions/networks.py`)
 - [x] 135 new extension tests (367 total, all passing)
 
-### Phase 5 — In Progress (Platform)
+### Phase 5 — Complete ✅
 - [x] Modern Next.js dashboard (`web/`) with React, TypeScript, Tailwind CSS
 - [x] FastAPI backend (`api/main.py`) for serving simulation data
-- [x] Vercel deployment configuration
+- [x] Vercel deployment configuration (`vercel.json` updated with correct RAM limits and endpoints)
 - [x] Fixed `inventory_asset` balance sheet bug
 - [x] Fixed delinquency threshold bug
 - [x] Added 78 new tests for agents and markets
-- [ ] Data persistence layer
-- [ ] Scenario comparison UI
-- [ ] Integration of Phase 4 extensions into core simulation loop
+- [x] Data persistence layer using SQLAlchemy and SQLite for FastAPI endpoints
+- [x] Scenario comparison UI with Recharts multi-line overlay charts
+- [x] Integration of Phase 4 extensions into core simulation loop
 
 ---
 
 ## 4. What Is Currently In Progress
 
-- Integrating Phase 4 extensions (multi-sector, skills, bonds, expectations, networks) into the core simulation engine
 - Running RL training experiments with the new unified training pipeline
-- Platform enhancements (Phase 5)
+- Improving deployment infrastructure and documentation
+- Potential research topics for the RL agents
 
 ---
 
@@ -174,16 +174,8 @@ econosim/
 - More scenario YAML files (demand shock, credit crunch, fiscal austerity)
 
 ### Integration priorities
-- Wire `InputOutputMatrix` into firm production decisions
-- Add `SkilledHousehold` / `SkilledFirm` to agent creation pipeline
-- Enable `BondMarket` as alternative to pure money creation
-- Attach `AgentExpectations` to firm pricing/hiring decisions
-- Record trade/credit flows in `TradeNetwork` / `CreditNetwork`
-
-### Phase 5 remaining work
-- Data persistence layer
-- Scenario comparison UI in Next.js dashboard
-- Deploy to Vercel
+- Analyze trade/credit flows in `TradeNetwork` / `CreditNetwork`
+- Visualize outputs from the `BondMarket` in the Next.js UI
 
 ---
 
@@ -671,3 +663,23 @@ econosim/
 - Tests reproducibility with extensions enabled
 
 **Tests**: 367 → 385 passing, 0 warnings
+
+---
+
+### Session 10: Phase 5 Data Persistence and Scenario Comparisons
+
+**Goal**: Implement local/cloud database support so users can actively save runs and compare them synchronously inside the Next.js UI.
+
+**Data Persistence (`api/database.py`)**:
+- Introduced `SQLAlchemy` database abstraction.
+- Built a single-table SQLite config that falls back to Postgres on Vercel (`simulation_runs`).
+- Serialized `config`, `summary`, and `periods` to JSON objects to prevent mass-insertion of rows during active ticks.
+- `POST /api/runs`, `GET /api/runs`, and `DELETE /api/runs` CRUD operations created.
+- Created Pytest tests (`test_api_db.py`) confirming fast, decoupled database CRUD actions.
+
+**Scenario Comparison UI (`CompareTab.tsx`)**:
+- Added the `Compare` tab to the Next.js UI to interact natively with `/api/runs`.
+- `fetchRun()` handles fetching large period data natively off SQLite/Postgres backends, only grabbing when a specific run is clicked.
+- Recharts handles overlay mapping to plot run metrics (like `GDP` vs `GDP`) in different visual groupings across a universal component.
+
+**Tests**: 385 → 389 passing, 0 warnings

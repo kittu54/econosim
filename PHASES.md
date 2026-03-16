@@ -226,9 +226,9 @@
 
 ---
 
-## Phase 5 — Platform Features ✅ (Partial)
+## Phase 5 — Platform Features ✅
 
-**Status**: In progress
+**Status**: Complete
 
 **What was built**:
 - **Modern Next.js dashboard**: React + TypeScript + Tailwind CSS frontend (`web/`)
@@ -262,14 +262,10 @@
   - 14 new extension metrics added to `compute_period_metrics()`
   - 18 new integration tests verifying extensions work with core simulation
 
-**Remaining work**:
-- **Data persistence**: Database storage for long runs
-- **Collaboration**: Shared scenarios, result sharing
-- **Scenario comparison UI**: Multi-run overlay charts
-
-**Key challenges**:
-- Scalability for concurrent users
-- Data model design for persistence
+- **Data persistence**: Added SQLite + SQLAlchemy storage for saving simulation runs, with FastAPI endpoints `/api/runs`.
+- **Scenario comparison UI**: Built an interactive multi-line comparison view (`CompareTab.tsx`) overlaying multiple stored runs via Recharts.
+- **Collaboration**: Re-evaluated and removed complexity for MVP scope. Database IDs can be shared securely inside a private environment.
+- **Vercel deployment**: Configured Next.js frontend and Python backend serverless rewrites inside `vercel.json` with instructions on connecting an external Postgres database like Supabase.
 
 ---
 
@@ -277,13 +273,13 @@
 
 - **Phases 0-3c**: ✅ Complete (full RL training pipeline)
 - **Phase 4**: ✅ Complete (advanced economic extensions)
-- **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
-- **Tests**: 385 passing, 0 warnings
+- **Phase 5 (Platform)**: ✅ Complete (Next.js UI + FastAPI backend + DB persistence + Comparisons)
+- **Tests**: 389 passing, 0 warnings
 - **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
 - **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
 - **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence
+- **Next immediate steps**: Start running multi-agent RL evaluations locally or deploy to a live Vercel endpoint.
 
 ---
 
