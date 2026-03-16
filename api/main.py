@@ -1,5 +1,6 @@
 """
-EconoSim FastAPI backend — serves simulation data to the Next.js frontend.
+EconoSim FastAPI backend — serves simulation data, calibration,
+forecasting, and data management to the Next.js frontend.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from econosim.config.schema import SimulationConfig
 from econosim.experiments.runner import run_experiment, run_batch
 from econosim.metrics.collector import enrich_dataframe
 
-app = FastAPI(title="EconoSim API", version="0.1.0")
+app = FastAPI(title="EconoSim API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -143,6 +144,169 @@ def simulate(req: SimulationRequest):
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Calibration endpoints ─────────────────────────────────────────
+
+
+class CalibrationRequest(BaseModel):
+    num_simulations: int = Field(5, ge=1, le=50)
+    num_periods: int = Field(120, ge=20, le=500)
+    method: str = Field("smm", pattern="^(smm|bayesian)$")
+    max_iterations: int = Field(100, ge=10, le=1000)
+    seed: int = Field(42, ge=0)
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/calibrate")
+def calibrate(req: CalibrationRequest):
+    """Run calibration to estimate structural parameters."""
+    try:
+        from econosim.calibration.parameters import default_macro_registry
+        from econosim.calibration.moments import default_us_moments
+        from econosim.calibration.engine import (
+            CalibrationProfile,
+            SimulationObjective,
+            SmmCalibrator,
+            BayesianCalibrator,
+        )
+
+        config = SimulationConfig(
+            num_periods=req.num_periods,
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        registry = default_macro_registry()
+        moments = default_us_moments()
+        profile = CalibrationProfile(
+            num_simulations=req.num_simulations,
+            num_periods=req.num_periods,
+            max_iterations=req.max_iterations,
+            seed_base=req.seed,
+        )
+
+        objective = SimulationObjective(config, registry, moments, profile)
+
+        if req.method == "bayesian":
+            calibrator = BayesianCalibrator(
+                objective, registry, profile, num_samples=req.max_iterations
+            )
+        else:
+            calibrator = SmmCalibrator(objective, registry, profile)
+
+        result = calibrator.calibrate()
+
+        return {
+            "method": result.method,
+            "converged": result.converged,
+            "objective": result.weighted_objective,
+            "estimated_params": result.estimated_params,
+            "moment_fit": result.moment_fit,
+            "num_evaluations": result.num_evaluations,
+            "elapsed_seconds": result.elapsed_seconds,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Forecast endpoints ────────────────────────────────────────────
+
+
+class ForecastRequest(BaseModel):
+    horizon: int = Field(24, ge=1, le=120)
+    num_parameter_draws: int = Field(20, ge=1, le=200)
+    num_shock_draws: int = Field(5, ge=1, le=50)
+    seed: int = Field(42, ge=0)
+    scenario_name: str = "baseline"
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/forecast")
+def forecast(req: ForecastRequest):
+    """Run probabilistic forecast ensemble."""
+    try:
+        from econosim.forecasting.engine import (
+            ForecastConfig,
+            ForecastEnsembleRunner,
+            ScenarioSpec,
+        )
+
+        config = SimulationConfig(
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        forecast_config = ForecastConfig(
+            horizon=req.horizon,
+            num_parameter_draws=req.num_parameter_draws,
+            num_shock_draws=req.num_shock_draws,
+            seed=req.seed,
+        )
+
+        runner = ForecastEnsembleRunner(config)
+        scenario = ScenarioSpec(name=req.scenario_name)
+        result = runner.forecast(forecast_config, scenario)
+
+        return {
+            "scenario": result.scenario_name,
+            "horizon": result.horizon,
+            "num_paths": result.num_paths,
+            "elapsed_seconds": result.elapsed_seconds,
+            "event_probabilities": result.event_probs,
+            "quantiles": result.to_dataframe().to_dict(orient="records"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Data endpoints ────────────────────────────────────────────────
+
+
+@app.get("/api/data/series")
+def list_data_series():
+    """List available macro data series definitions."""
+    from econosim.data.sources.fred import FRED_MACRO_SERIES
+    return {"fred_series": FRED_MACRO_SERIES}
+
+
+@app.get("/api/models")
+def list_models():
+    """List available model components."""
+    return {
+        "agents": ["household", "firm", "bank", "government"],
+        "markets": ["labor", "goods", "credit"],
+        "policies": ["rule_based", "rl", "transformer"],
+        "calibration_methods": ["smm", "bayesian"],
+        "forecast_methods": ["ensemble", "residual_transformer"],
+        "benchmarks": ["random_walk", "ar1", "linear_trend"],
+    }
+
+
+@app.get("/api/measurement/series")
+def list_measurement_series():
+    """List measurement model series definitions."""
+    from econosim.measurement.national_accounts import MEASUREMENT_SERIES
+    return {
+        name: {
+            "description": s.description,
+            "units": s.units,
+            "source_variables": s.source_variables,
+        }
+        for name, s in MEASUREMENT_SERIES.items()
+    }
 
 
 if __name__ == "__main__":
