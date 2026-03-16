@@ -246,6 +246,19 @@
   - Extension toggle switches in sidebar (Adaptive Expectations, Network Tracking, Bond Market)
   - Extensions tab with conditional sections: forecast error charts, network density/concentration/systemic risk, bond outstanding/flows/debt-to-GDP
   - API exposes `extensions` parameter with 3 boolean feature flags
+- **Documentation page** (`/docs`):
+  - 13-section comprehensive reference with sidebar table-of-contents
+  - Covers architecture, agents, markets, accounting, simulation loop, policy/shocks, extensions, metrics, RL envs, experiments, API reference, full parameter guide
+  - Interactive accordions, code blocks, parameter tables, sensitivity tips
+  - Linked from landing page feature cards
+- **Top navigation bar**:
+  - Persistent sticky navbar with Dashboard and Documentation links
+  - Brand logo, active state indicators, version badge (494 tests)
+  - Glass morphism background
+- **Landing page redesign**:
+  - Feature cards now link to relevant docs sections (e.g., "RL-Ready" → /docs#rl)
+  - 3-step quick-start guide (configure → run → explore)
+  - Distinct color coding per feature card
 - **Scenario comparison UI**:
   - Save simulation runs for later comparison (up to 5)
   - Metric selector dropdown (10 key economic metrics)

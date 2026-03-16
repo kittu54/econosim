@@ -757,3 +757,57 @@ econosim/
 
 **New files**: `tests/test_stress.py` (1,087 lines, 109 tests)
 
+---
+
+### Session 12 — 2026-03-16 (Documentation Page, Navigation, Landing Redesign)
+
+**Goal**: Create comprehensive documentation page, add persistent navigation, redesign landing page to link feature cards to docs, and refine overall UI.
+
+**Documentation Page (`web/src/app/docs/page.tsx`)**:
+- 13-section comprehensive reference with sidebar table-of-contents:
+  1. Overview — platform summary, quick start, 4 key capability cards
+  2. Architecture — layer diagram, directory structure, design decisions accordion
+  3. Agents — Household (buffer-stock consumption), Firm (hiring/pricing/production), Bank (lending/defaults), Government (sovereign money/fiscal stabilizer)
+  4. Markets — Credit, Labor, Goods with clearing order explanation
+  5. Accounting — Account types table, money creation/destruction flows, transfer mechanism
+  6. Simulation Loop — All 13 sub-steps visualized as numbered cards
+  7. Policy & Shocks — 4 shock types with config examples
+  8. Extensions — Expectations, networks, bonds (integrated), multi-sector/skills (standalone)
+  9. Metrics — Formula reference table with dashboard tab mapping
+  10. RL Environments — 4 env cards with obs/action/reward specs, training pipeline commands
+  11. Experiments — Batch runs, parameter sweeps, scenario presets
+  12. API Reference — 3 endpoints with method badges and request body example
+  13. Parameter Guide — Full tables for all 4 agent types with defaults, ranges, descriptions, plus sensitivity tips
+- Reusable components: DocSection, Accordion, Code, CodeBlock, InfoCard, ParamTable
+- Sidebar tracks active section with scroll-to behavior
+
+**Top Navbar (`web/src/components/layout/Navbar.tsx`)**:
+- Persistent sticky navbar across all pages
+- Brand logo (gradient icon) + "EconoSim" text
+- Navigation links: Dashboard, Documentation — with active state highlighting
+- Version badge: "v0.5 — 494 tests"
+- Glass morphism background with border
+
+**Landing Page Redesign (`web/src/app/page.tsx`)**:
+- Feature cards now **link to docs sections** (e.g., "Double-Entry Accounting" → /docs#accounting)
+- Each card has distinct color coding per domain (emerald, amber, accent, indigo, violet, cyan, rose, teal)
+- Added **3-step quick-start guide**: configure → run → explore
+- "Full documentation" link header above feature grid
+- Updated test count: 208 → 494
+- Removed stale/unused imports
+- Improved error banner with icon indicator
+- Running indicator spinner shown during simulation
+
+**CSS Additions (`globals.css`)**:
+- `html { scroll-behavior: smooth }` for anchor link scrolling
+- Stagger animation delays extended to 8th child (was 6)
+
+**Root Layout (`layout.tsx`)**:
+- Added `<Navbar />` component to root layout (appears on all pages)
+
+**New files**:
+- `web/src/app/docs/page.tsx` — Documentation page (~650 lines)
+- `web/src/components/layout/Navbar.tsx` — Navigation bar
+
+**Build**: Next.js compiles successfully, both `/` and `/docs` routes render as static pages.
+
