@@ -238,6 +238,7 @@ econosim/
 | `tests/test_bonds.py` | Bond market and debt management tests |
 | `tests/test_expectations.py` | Adaptive expectations tests |
 | `tests/test_networks.py` | Trade/credit network tests |
+| `tests/test_stress.py` | Comprehensive simulation stress tests (109 tests, 13 categories) |
 
 ---
 
@@ -304,7 +305,7 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 367 tests pass** with 0 warnings
+- **All 494 tests pass** with 0 warnings
 - Package installs via `pip install -e ".[dev,rl]"`
 - Python 3.11+ required
 - Simulation builds, runs, and produces metrics
@@ -713,3 +714,46 @@ econosim/
 - Compare tab receives current data, saved runs, save/remove callbacks
 
 **Tests**: 385 passing, 0 warnings. Next.js build succeeds.
+
+---
+
+### Session 11 — 2026-03-16 (Comprehensive Simulation Stress Testing)
+
+**Goal**: Run exhaustive stress tests across all edge cases, parameter extremes, extension combinations, shock responses, and economic policy scenarios to validate the core simulation engine's soundness.
+
+**New test file**: `tests/test_stress.py` (109 tests across 13 categories)
+
+*Test Categories*:
+1. **Baseline Sanity** (7 tests): 120-period run, positive GDP, employment, nonzero prices/wages, reproducibility (same seed = same results), different seeds differ
+2. **Accounting Invariants** (6 tests): Balance sheets balanced across 5 seeds (1, 17, 42, 99, 12345), no negative deposits, bank capital ratio consistency, deposit tracking, government budget identity (tax - transfers - spending = balance), employment ≤ labor force
+3. **Extension Combinations** (10 tests): All 8 combinations of {expectations, networks, bonds} on/off, 200-period long run with all extensions, extensions-off equals baseline
+4. **Extreme Parameters** (22 tests): Single firm, 50 firms, single household, 500 households, zero/high initial deposits (HH and firm), min/max consumption propensity, zero wealth propensity, very high/low productivity, very high/low prices, very high/low wages, fast price/wage adjustment, 5-period and 500-period runs, very high/zero reservation wage
+5. **Banking Edge Cases** (5 tests): Very high/low capital adequacy ratio, very high/zero interest rates, loan defaults don't break accounting
+6. **Government Policy** (8 tests): Zero/high spending, zero/high tax rate, fiscal multiplier (higher spending → higher GDP), tax drag (higher taxes → lower consumption), sovereign money creation with zero initial deposits, generous transfers reduce inequality
+7. **Economic Dynamics** (4 tests): Higher productivity → higher GDP, higher consumption propensity → higher GDP, more households → higher GDP, higher demand → higher consumption, credit system functional
+8. **Shock Responses** (8 tests): Supply shock, demand shock reduces GDP, credit crunch, fiscal austerity reduces GDP, stimulus raises GDP, multiple simultaneous shocks, shocks with all extensions enabled
+9. **Scenario Presets** (4 tests): Baseline, high growth (higher GDP than baseline), recession (lower GDP), tight money
+10. **Batch Run Stability** (3 tests): 5-seed batch, 10-seed batch, batch with all extensions
+11. **Metric Consistency** (8 tests): All metrics bounded (5 seeds), GDP nonnegative, Gini in [0,1], unemployment in [0,1], employment identity, wage income positive when employed
+12. **Combined Stress** (8 tests): Recession + all extensions, credit crunch + extensions, stagflation (supply shock + loose fiscal), everything-extreme (all params extreme + all shocks + all extensions), deflationary death spiral handled, hyperinflation stable, 10-seed robustness sweep
+13. **API Simulation** (3 tests): run_experiment default, run_experiment with extensions, run_batch
+
+**Key Findings**:
+- **Accounting invariants are rock solid**: Balance sheets stay balanced across all scenarios — extreme parameters, shocks, extensions, combined stress
+- **No NaN or Inf values** in any metric under any tested scenario
+- **No negative deposits** anywhere — money conservation holds
+- **No crashes** — even with deflationary spirals, hyperinflation conditions, simultaneous shocks, extreme parameters
+- **Economic logic verified**: fiscal multiplier works, tax drag confirmed, productivity → GDP, demand → consumption, transfers reduce inequality
+- **Extensions integrate cleanly**: All 8 flag combinations work, 200-period long runs stable, extensions don't affect baseline when disabled
+- **All 4 dashboard presets** produce expected relative economic behavior
+
+**Model Observations** (not bugs — valid model characteristics):
+- Firms don't borrow much under default config — government spending provides sufficient demand without credit expansion
+- With very low demand, inventory goes to zero because firms rationally stop producing
+- Prices can fall even with money creation if supply-side productivity constraints dominate (low productivity → ample inventory → price adjustment lowers prices)
+- Gini coefficient is relatively insensitive to transfer amount when employment is high (transfers only go to unemployed)
+
+**Tests**: 385 → 494 passing, 0 warnings
+
+**New files**: `tests/test_stress.py` (1,087 lines, 109 tests)
+

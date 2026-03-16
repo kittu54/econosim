@@ -271,6 +271,21 @@
   - 14 new extension metrics added to `compute_period_metrics()`
   - 18 new integration tests verifying extensions work with core simulation
 
+**Comprehensive stress testing** (109 tests across 13 categories):
+- Baseline sanity (7): reproducibility, positive GDP, employment, prices, wages
+- Accounting invariants (6): balance sheets across 5 seeds, deposits tracking, budget identity, capital ratio
+- Extension combinations (10): all 8 flag combos, 200-period long run, baseline equivalence
+- Extreme parameters (22): single/many agents, zero/high deposits, min/max propensities, productivity extremes
+- Banking edge cases (5): high/low capital adequacy, interest rates, loan defaults
+- Government policy (8): zero/high spending, zero/high taxes, fiscal multiplier, money creation, transfers & inequality
+- Economic dynamics (4): productivity→GDP, consumption→GDP, population→GDP, demand→consumption
+- Shock responses (8): supply/demand/credit/fiscal shocks, simultaneous shocks, shocks with extensions
+- Scenario presets (4): baseline, high growth, recession, tight money
+- Batch run stability (3): multi-seed batch runs with and without extensions
+- Metric consistency (8): bounded metrics across 5 seeds, employment identity, wage-income consistency
+- Combined stress (8): recession+extensions, credit crunch, stagflation, everything-extreme, deflationary spiral, hyperinflation, 10-seed robustness
+- API simulation (3): run_experiment, run_batch, extensions via API path
+
 **Remaining work**:
 - **Data persistence**: Database storage for long runs
 - **Collaboration**: Shared scenarios, result sharing
@@ -286,7 +301,7 @@
 - **Phases 0-3c**: ✅ Complete (full RL training pipeline)
 - **Phase 4**: ✅ Complete (advanced economic extensions)
 - **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
-- **Tests**: 385 passing, 0 warnings
+- **Tests**: 494 passing, 0 warnings
 - **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
 - **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
