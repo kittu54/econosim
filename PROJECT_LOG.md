@@ -151,39 +151,37 @@ econosim/
 - [x] Fixed `inventory_asset` balance sheet bug
 - [x] Fixed delinquency threshold bug
 - [x] Added 78 new tests for agents and markets
+- [x] Integration of Phase 4 extensions into core simulation loop
+- [x] Phase 4 extension toggles in API and frontend sidebar
+- [x] Extensions tab (expectations, networks, bonds charts)
+- [x] Scenario comparison UI with multi-run overlay charts
 - [ ] Data persistence layer
-- [ ] Scenario comparison UI
-- [ ] Integration of Phase 4 extensions into core simulation loop
+- [ ] Collaboration (shared scenarios, result sharing)
 
 ---
 
 ## 4. What Is Currently In Progress
 
-- Integrating Phase 4 extensions (multi-sector, skills, bonds, expectations, networks) into the core simulation engine
 - Running RL training experiments with the new unified training pipeline
-- Platform enhancements (Phase 5)
+- Platform enhancements (Phase 5): data persistence, collaboration features
 
 ---
 
 ## 5. What Is Planned Next
 
 ### Near-term
-- Integrate Phase 4 extensions into core `simulation.py` step loop
 - Run RL training experiments and benchmark RL vs baseline policies
 - Longer-run calibration to reduce deflation bias
 - More scenario YAML files (demand shock, credit crunch, fiscal austerity)
+- Deploy to Vercel
 
 ### Integration priorities
 - Wire `InputOutputMatrix` into firm production decisions
 - Add `SkilledHousehold` / `SkilledFirm` to agent creation pipeline
-- Enable `BondMarket` as alternative to pure money creation
-- Attach `AgentExpectations` to firm pricing/hiring decisions
-- Record trade/credit flows in `TradeNetwork` / `CreditNetwork`
 
 ### Phase 5 remaining work
-- Data persistence layer
-- Scenario comparison UI in Next.js dashboard
-- Deploy to Vercel
+- Data persistence layer (database storage for long runs)
+- Collaboration features (shared scenarios, result sharing)
 
 ---
 
@@ -671,3 +669,47 @@ econosim/
 - Tests reproducibility with extensions enabled
 
 **Tests**: 367 → 385 passing, 0 warnings
+
+---
+
+### Session 10 — 2026-03-16 (Phase 5: Extensions UI + Scenario Comparison)
+
+**Phase 4 Extensions Exposed in API & Frontend**:
+
+*API Changes (`api/main.py`)*:
+- Added `ExtensionParams` model with `enable_expectations`, `enable_networks`, `enable_bonds` boolean toggles
+- Added `extensions` field to `SimulationRequest` (defaults all off)
+- Extension flags passed through to `SimulationConfig` so the core engine activates them
+
+*Frontend Extensions Sidebar (`web/src/components/controls/Sidebar.tsx`)*:
+- New "Extensions" collapsible section with `Puzzle` icon
+- Toggle switch component with label, description, and animated on/off indicator
+- Three toggles: Adaptive Expectations, Network Tracking, Bond Market
+- Presets now include extensions spread for future extension-enabled presets
+
+*Frontend Types (`web/src/lib/types.ts`)*:
+- Added `ExtensionParams` interface
+- Added `extensions` field to `SimulationRequest` and `DEFAULT_CONFIG`
+- Added 13 optional extension metric fields to `PeriodData`: trade network density/concentration, credit network density/concentration/systemic risk, bond outstanding/interest/issued/redeemed/debt-to-GDP, price/demand forecast errors
+
+**Extensions Tab (`web/src/components/tabs/ExtensionsTab.tsx`)** — New:
+- Conditionally renders sections based on which extension metrics exist in data
+- **Adaptive Expectations**: Price forecast error chart, demand forecast error chart
+- **Network Effects**: Network density chart (trade + credit), market concentration HHI chart (seller + credit), systemic risk score chart
+- **Bond Market**: Bonds outstanding chart, debt-to-GDP ratio chart, bond flows chart (issued vs redeemed), bond interest expense chart
+- Shows informative "No extensions enabled" message when all toggles are off
+
+**Scenario Comparison Tab (`web/src/components/tabs/CompareTab.tsx`)** — New:
+- **Save runs**: Users can save the current simulation run for later comparison (up to 5 saved runs)
+- **Metric selector**: Dropdown with 10 key metrics (GDP, unemployment, prices, wages, Gini, loans, production, consumption, budget balance, bank capital ratio)
+- **Overlay chart**: Line chart overlaying all saved runs + current run with distinct colors and dash styles
+- **Saved runs list**: Visual list of saved runs with color indicators and remove buttons
+- Current run drawn with solid line, saved runs with dashed lines
+
+*Main Page Updates (`web/src/app/page.tsx`)*:
+- 7 tabbed views (was 5): added "Extensions" and "Compare" tabs
+- `savedRuns` state for storing comparison data
+- `handleSaveRun` callback saves current result data + config
+- Compare tab receives current data, saved runs, save/remove callbacks
+
+**Tests**: 385 passing, 0 warnings. Next.js build succeeds.

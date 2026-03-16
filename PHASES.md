@@ -234,7 +234,7 @@
 - **Modern Next.js dashboard**: React + TypeScript + Tailwind CSS frontend (`web/`)
   - Dark theme with glass morphism, gradient accents, animated transitions
   - 6 KPI cards with sparkline mini-charts and trend deltas
-  - 5 tabbed views: Macro, Labor & Production, Government, Money & Credit, Data
+  - 7 tabbed views: Macro, Labor & Production, Government, Money & Credit, Extensions, Compare, Data
   - Interactive recharts-based charts with gradient fills, legends, and CI bands
   - Parameter control sidebar with scenario presets (Baseline, High Growth, Recession, Tight Money)
   - Collapsible sidebar with reset-to-defaults functionality
@@ -242,8 +242,17 @@
   - Animated welcome screen with feature cards
   - Column-selectable data table with CSV/JSON export
   - Responsive layout with staggered animations
+- **Phase 4 extension UI integration**:
+  - Extension toggle switches in sidebar (Adaptive Expectations, Network Tracking, Bond Market)
+  - Extensions tab with conditional sections: forecast error charts, network density/concentration/systemic risk, bond outstanding/flows/debt-to-GDP
+  - API exposes `extensions` parameter with 3 boolean feature flags
+- **Scenario comparison UI**:
+  - Save simulation runs for later comparison (up to 5)
+  - Metric selector dropdown (10 key economic metrics)
+  - Overlay line chart comparing all saved runs with distinct colors/styles
+  - Saved runs management (list with remove buttons)
 - **FastAPI backend** (`api/main.py`): RESTful API serving simulation data
-  - `POST /api/simulate` — run simulation with custom config
+  - `POST /api/simulate` — run simulation with custom config (including extension flags)
   - `GET /api/defaults` — default config
   - `GET /api/health` — health check
   - CORS-enabled for cross-origin frontend
@@ -265,7 +274,6 @@
 **Remaining work**:
 - **Data persistence**: Database storage for long runs
 - **Collaboration**: Shared scenarios, result sharing
-- **Scenario comparison UI**: Multi-run overlay charts
 
 **Key challenges**:
 - Scalability for concurrent users
@@ -283,7 +291,7 @@
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
 - **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
 - **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence
+- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence, collaboration features
 
 ---
 
