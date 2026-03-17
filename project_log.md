@@ -269,6 +269,33 @@ Full codebase audit identified 15 items that were coded but not fully wired. Com
 - **557 tests passing** — zero regressions
 - All existing tests pass with the new wiring (backward compatible)
 
+---
+
+## 2026-03-17 — Fix Ordering Bugs, Tests, and API Validation
+
+### Changes
+- **`engine/simulation.py`**: Split `_apply_household_policy` into two functions:
+  - `_apply_household_policy_labor()` — called BEFORE labor market (sets labor_participation, reservation_wage)
+  - `_apply_household_policy_consumption()` — called BEFORE goods market (computes consumption budgets)
+  - This fixes the ordering bug where labor participation was set AFTER the labor market cleared
+- **`api/main.py`**:
+  - Calibration endpoint: adds convergence warning when calibration doesn't converge
+  - Forecast endpoint: validates scenario name against known scenarios, returns 400 for unknowns
+  - Forecast endpoint: applies scenario-specific parameter overrides (recession, high_growth, tight_money)
+- **`tests/test_wiring_completion.py`**: 18 new tests verifying:
+  - Firm wage_adjustment raises/lowers wages
+  - Firm loan_request generates/suppresses loans
+  - Household labor_participation=False prevents employment
+  - Household reservation_wage_adjustment decreases reservation wages
+  - PIT uniformity (uniform→low KS, biased→high KS, edge cases)
+  - CRPS edge cases (perfect, single-member, empty, symmetric)
+  - Multi-benchmark skill scores (all 3 benchmarks produce scorecards)
+  - PIT uniformity appears in summary table
+
+### Test Results
+- **575 tests passing** (557 + 18 new)
+- Zero regressions
+
 ### Next Steps
 - Profile and parallelize calibration/forecasting runs (Phase M8)
 - Build PyTorch transformer training for production (Phase M7 completion)

@@ -203,7 +203,7 @@ def calibrate(req: CalibrationRequest):
 
         result = calibrator.calibrate()
 
-        return {
+        response = {
             "method": result.method,
             "converged": result.converged,
             "objective": result.weighted_objective,
@@ -212,11 +212,39 @@ def calibrate(req: CalibrationRequest):
             "num_evaluations": result.num_evaluations,
             "elapsed_seconds": result.elapsed_seconds,
         }
+
+        # Add convergence warning if not converged
+        if not result.converged:
+            response["warning"] = (
+                f"Calibration did not converge after {result.num_evaluations} evaluations. "
+                f"Final objective: {result.weighted_objective:.6f}. "
+                "Consider increasing max_iterations or adjusting parameter bounds."
+            )
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Forecast endpoints ────────────────────────────────────────────
+
+
+VALID_SCENARIOS = {"baseline", "recession", "high_growth", "tight_money"}
+
+_SCENARIO_OVERRIDES: dict[str, dict[str, float]] = {
+    "baseline": {},
+    "recession": {
+        "household.consumption_propensity": 0.5,
+        "firm.labor_productivity": 5.0,
+    },
+    "high_growth": {
+        "household.consumption_propensity": 0.95,
+        "firm.labor_productivity": 12.0,
+    },
+    "tight_money": {
+        "bank.base_interest_rate": 0.03,
+    },
+}
 
 
 class ForecastRequest(BaseModel):
@@ -234,6 +262,14 @@ class ForecastRequest(BaseModel):
 @app.post("/api/forecast")
 def forecast(req: ForecastRequest):
     """Run probabilistic forecast ensemble."""
+    # Validate scenario name
+    if req.scenario_name not in VALID_SCENARIOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown scenario '{req.scenario_name}'. "
+            f"Valid scenarios: {sorted(VALID_SCENARIOS)}",
+        )
+
     try:
         from econosim.forecasting.engine import (
             ForecastConfig,
@@ -256,8 +292,12 @@ def forecast(req: ForecastRequest):
             seed=req.seed,
         )
 
+        scenario = ScenarioSpec(
+            name=req.scenario_name,
+            parameter_overrides=_SCENARIO_OVERRIDES.get(req.scenario_name, {}),
+        )
+
         runner = ForecastEnsembleRunner(config)
-        scenario = ScenarioSpec(name=req.scenario_name)
         result = runner.forecast(forecast_config, scenario)
 
         return {

@@ -359,8 +359,28 @@ def build_household_state(hh: Household) -> HouseholdState:
     )
 
 
-def _apply_household_policy(state: SimulationState, macro: MacroState) -> dict[str, float] | None:
-    """Apply household policy: set labor participation, reservation wage, and consumption budgets.
+def _apply_household_policy_labor(state: SimulationState, macro: MacroState) -> None:
+    """Apply household policy labor decisions before the labor market clears.
+
+    Sets labor_participation and reservation_wage on each household.
+    """
+    policy = state.household_policy
+    if policy is None:
+        return
+
+    for hh in state.households:
+        hs = build_household_state(hh)
+        action = policy.act(hs, macro)
+
+        # Apply labor participation
+        hh.labor_participation = action.labor_participation
+
+        # Apply reservation wage adjustment
+        hh.reservation_wage = max(0.0, hh.reservation_wage * action.reservation_wage_adjustment)
+
+
+def _apply_household_policy_consumption(state: SimulationState, macro: MacroState) -> dict[str, float] | None:
+    """Apply household policy consumption decisions before the goods market clears.
 
     Returns consumption budgets dict (agent_id -> spending) or None if no policy.
     """
@@ -372,12 +392,6 @@ def _apply_household_policy(state: SimulationState, macro: MacroState) -> dict[s
     for hh in state.households:
         hs = build_household_state(hh)
         action = policy.act(hs, macro)
-
-        # Apply labor participation
-        hh.labor_participation = action.labor_participation
-
-        # Apply reservation wage adjustment
-        hh.reservation_wage = max(0.0, hh.reservation_wage * action.reservation_wage_adjustment)
 
         # Compute consumption budget
         budget = action.consumption_fraction * max(0.0, hh.deposits)
@@ -497,6 +511,9 @@ def step(state: SimulationState) -> dict[str, Any]:
                     state.bank.agent_id, loan.borrower_id, loan.principal, period
                 )
 
+    # ── 2b. Household labor decisions (before labor market) ─────
+    _apply_household_policy_labor(state, macro)
+
     # ── 3. Labor market ──────────────────────────────────────────
     state.labor_market.clear(
         households=state.households,
@@ -515,8 +532,8 @@ def step(state: SimulationState) -> dict[str, Any]:
         for firm in state.firms:
             firm.adjust_price()
 
-    # Apply household policy: labor participation, reservation wage, consumption budgets
-    hh_budgets = _apply_household_policy(state, macro)
+    # Apply household policy: consumption budgets (before goods market)
+    hh_budgets = _apply_household_policy_consumption(state, macro)
 
     state.goods_market.clear(
         households=state.households,
