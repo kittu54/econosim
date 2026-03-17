@@ -63,8 +63,8 @@ class FredClient:
                     cached = json.load(f)
                 logger.debug(f"Cache hit: {endpoint} {params}")
                 return cached
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug(f"Cache read failed for {endpoint}: {e}")
         return None
 
     def _save_cache(self, endpoint: str, params: dict[str, Any], data: dict[str, Any]) -> None:

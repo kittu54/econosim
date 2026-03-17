@@ -30,11 +30,15 @@ class CreditMarket:
         firms: list[Firm],
         bank: Bank,
         period: int,
+        policy_loan_requests: dict[str, float] | None = None,
     ) -> None:
         """Process credit applications for one period.
 
         Firms apply for loans if they need cash for operations.
         Bank approves or rejects based on capital adequacy and creditworthiness.
+
+        If policy_loan_requests is provided (firm_id -> amount), those override
+        the built-in borrowing heuristic for the specified firms.
         """
         self.applications = 0
         self.approvals = 0
@@ -42,17 +46,24 @@ class CreditMarket:
         self.total_rejected = 0.0
 
         for firm in firms:
-            # Simple borrowing rule: firm borrows if deposits < wage bill needed
-            expected_wage_bill = firm.posted_wage * max(firm.vacancies, 1)
-            cash_shortfall = expected_wage_bill - firm.deposits
+            # Check if policy specified a loan request for this firm
+            if policy_loan_requests and firm.agent_id in policy_loan_requests:
+                requested = round_money(policy_loan_requests[firm.agent_id])
+                if requested <= 0:
+                    continue
+            else:
+                # Default borrowing rule: firm borrows if deposits < wage bill needed
+                expected_wage_bill = firm.posted_wage * max(firm.vacancies, 1)
+                cash_shortfall = expected_wage_bill - firm.deposits
 
-            if cash_shortfall <= 0:
-                continue
-            if not firm.can_borrow(cash_shortfall):
-                continue
+                if cash_shortfall <= 0:
+                    continue
+                if not firm.can_borrow(cash_shortfall):
+                    continue
+
+                requested = round_money(cash_shortfall * 1.2)  # small buffer
 
             self.applications += 1
-            requested = round_money(cash_shortfall * 1.2)  # small buffer
 
             contract = bank.approve_loan(
                 borrower_id=firm.agent_id,

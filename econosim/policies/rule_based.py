@@ -72,23 +72,41 @@ class RuleBasedFirmPolicy(FirmPolicy):
 
 
 class RuleBasedHouseholdPolicy(HouseholdPolicy):
-    """Replicates existing household decision rules."""
+    """Rule-based household decision policy.
+
+    - Buffer-stock consumption: C = α1 * disposable_income + α2 * wealth
+    - Labor participation: withdraw if unemployed for long in a tight market
+    - Reservation wage: lower when unemployed, raise when employed
+    """
+
+    def __init__(
+        self,
+        reservation_wage_down: float = 0.98,
+        reservation_wage_up: float = 1.01,
+    ) -> None:
+        self.reservation_wage_down = reservation_wage_down
+        self.reservation_wage_up = reservation_wage_up
 
     def act(self, hh_state: HouseholdState, macro_state: MacroState) -> HouseholdAction:
         hs = hh_state
         action = HouseholdAction()
 
         # Buffer-stock consumption: C = α1 * income + α2 * wealth
-        disposable = hs.wage_income - 0  # taxes handled externally
-        income_part = hs.consumption_propensity * max(0.0, disposable)
+        income_part = hs.consumption_propensity * max(0.0, hs.wage_income)
         wealth_part = hs.wealth_propensity * max(0.0, hs.deposits)
         desired = income_part + wealth_part
         budget = min(desired, max(0.0, hs.deposits))
         action.consumption_fraction = budget / max(hs.deposits, 0.01)
         action.consumption_fraction = min(1.0, max(0.0, action.consumption_fraction))
 
-        action.labor_participation = True  # always participate
-        action.reservation_wage_adjustment = 1.0
+        # Labor participation: always participate (could gate on deposits)
+        action.labor_participation = True
+
+        # Reservation wage adjustment: lower when unemployed to increase job chances
+        if not hs.employed:
+            action.reservation_wage_adjustment = self.reservation_wage_down
+        else:
+            action.reservation_wage_adjustment = self.reservation_wage_up
 
         return action
 

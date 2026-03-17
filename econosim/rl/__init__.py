@@ -10,6 +10,22 @@ from econosim.rl.env import EconEnvInterface
 from econosim.rl.macro_env import MacroEnv
 
 
+def register_gymnasium_envs() -> None:
+    """Register all EconoSim environments with Gymnasium.
+
+    Call this function before using gym.make("EconoSim-Firm-v0") etc.
+    Requires gymnasium to be installed.
+    """
+    import econosim.rl.registration  # noqa: F401
+
+
+# Auto-register if gymnasium is available (no-op if not installed)
+try:
+    register_gymnasium_envs()
+except ImportError:
+    pass
+
+
 def __getattr__(name: str):
     """Lazy import for gymnasium-dependent environments."""
     _gym_names = {
@@ -42,6 +58,7 @@ def __getattr__(name: str):
 __all__ = [
     "EconEnvInterface",
     "MacroEnv",
+    "register_gymnasium_envs",
     "FirmEnv",
     "HouseholdEnv",
     "GovernmentEnv",

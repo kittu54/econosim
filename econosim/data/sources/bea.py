@@ -52,8 +52,8 @@ class BeaClient:
             try:
                 with open(cache_file) as f:
                     return json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug(f"BEA cache read failed: {e}")
 
         if not self.api_key:
             raise ValueError(

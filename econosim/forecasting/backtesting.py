@@ -80,6 +80,7 @@ class EvaluationReport:
                 "crps": sc.crps,
                 "coverage_90": sc.coverage_90,
                 "coverage_50": sc.coverage_50,
+                "pit_uniformity": sc.pit_uniformity,
                 "skill_rmse": sc.skill_score_rmse,
                 "skill_crps": sc.skill_score_crps,
                 "n_origins": sc.num_origins,
@@ -259,8 +260,8 @@ class BacktestRunner:
                     try:
                         bm_fc = bm.forecast(history, config.forecast_horizon, variable)
                         bm_errors[bm.name].append(bm_fc - actual)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Benchmark {bm.name} failed at origin {origin}: {e}")
 
             if not forecast_errors:
                 continue
@@ -284,12 +285,12 @@ class BacktestRunner:
             sc.mape = float(np.nanmean(np.abs(errors_array) / denom))
             sc.bias = float(np.mean(errors_array))
 
-            # Coverage and CRPS (if ensemble available)
+            # Coverage, CRPS, and PIT uniformity (if ensemble available)
             if ensemble_collections:
-                ensembles = np.array(ensemble_collections)  # (n_origins, n_paths, horizon)
                 coverages_90 = []
                 coverages_50 = []
                 crps_values = []
+                pit_values = []
 
                 for oi in range(len(ensemble_collections)):
                     ens = ensemble_collections[oi]  # (n_paths, horizon)
@@ -301,16 +302,38 @@ class BacktestRunner:
                         coverages_50.append(q25 <= act[t] <= q75)
                         crps_values.append(_crps_ensemble(samples, act[t]))
 
+                        # PIT: fraction of ensemble below actual
+                        pit = float(np.mean(samples <= act[t]))
+                        pit_values.append(pit)
+
                 sc.coverage_90 = float(np.mean(coverages_90))
                 sc.coverage_50 = float(np.mean(coverages_50))
                 sc.crps = float(np.mean(crps_values))
 
-            # Skill scores vs random walk
+                # PIT uniformity: KS statistic vs Uniform(0,1)
+                # Lower is better (0 = perfectly calibrated)
+                sc.pit_uniformity = _ks_uniformity(pit_values)
+
+            # Skill scores vs best benchmark (lowest RMSE among all benchmarks)
+            best_bm_rmse = float("inf")
+            best_bm_crps = float("inf")
             for bm in self.benchmarks:
-                if bm.name == "random_walk" and bm_errors[bm.name]:
+                if bm_errors[bm.name]:
                     bm_rmse = float(np.sqrt(np.mean(np.array(bm_errors[bm.name]) ** 2)))
-                    sc.skill_score_rmse = 1.0 - sc.rmse / max(bm_rmse, 1e-10)
-                    break
+                    if bm_rmse < best_bm_rmse:
+                        best_bm_rmse = bm_rmse
+
+            if best_bm_rmse < float("inf"):
+                sc.skill_score_rmse = 1.0 - sc.rmse / max(best_bm_rmse, 1e-10)
+
+            # CRPS skill score vs random walk CRPS (if available)
+            if sc.crps > 0 and ensemble_collections:
+                rw_crps = _benchmark_crps(
+                    self.benchmarks, "random_walk", self.full_history,
+                    origins, variable, config.forecast_horizon, actuals_array,
+                )
+                if rw_crps > 0:
+                    sc.skill_score_crps = 1.0 - sc.crps / max(rw_crps, 1e-10)
 
             scorecards.append(sc)
 
@@ -340,6 +363,57 @@ class BacktestRunner:
                 "origins": origins,
             },
         )
+
+
+def _ks_uniformity(pit_values: list[float]) -> float:
+    """Compute Kolmogorov-Smirnov statistic of PIT values vs Uniform(0,1).
+
+    Returns the KS statistic (0 = perfect calibration, 1 = worst).
+    """
+    if not pit_values:
+        return 0.0
+    n = len(pit_values)
+    sorted_pits = np.sort(pit_values)
+    # Two-sided KS statistic
+    cdf_uniform = np.arange(1, n + 1) / n
+    cdf_uniform_prev = np.arange(0, n) / n
+    d_plus = np.max(cdf_uniform - sorted_pits)
+    d_minus = np.max(sorted_pits - cdf_uniform_prev)
+    return float(max(d_plus, d_minus))
+
+
+def _benchmark_crps(
+    benchmarks: list[BenchmarkModel],
+    benchmark_name: str,
+    full_history: pd.DataFrame,
+    origins: list[int],
+    variable: str,
+    horizon: int,
+    actuals_array: np.ndarray,
+) -> float:
+    """Compute CRPS for a benchmark model using point-forecast-as-ensemble.
+
+    Uses the benchmark's point forecast as a degenerate ensemble (CRPS = MAE).
+    """
+    bm = next((b for b in benchmarks if b.name == benchmark_name), None)
+    if bm is None:
+        return 0.0
+
+    crps_values = []
+    for oi, origin in enumerate(origins):
+        if oi >= len(actuals_array):
+            break
+        history = full_history.iloc[:origin]
+        try:
+            fc = bm.forecast(history, horizon, variable)
+            actual = actuals_array[oi]
+            for t in range(min(len(actual), len(fc))):
+                # CRPS of a point forecast = |forecast - actual|
+                crps_values.append(abs(fc[t] - actual[t]))
+        except Exception:
+            continue
+
+    return float(np.mean(crps_values)) if crps_values else 0.0
 
 
 def _crps_ensemble(ensemble: np.ndarray, observation: float) -> float:

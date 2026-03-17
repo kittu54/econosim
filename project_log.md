@@ -227,7 +227,49 @@
 - **557 tests passing** (544 + 13 new)
 - Zero regressions
 
+---
+
+## 2026-03-17 — Complete Unfinished Wiring: Policies, Backtesting, Data Sources, RL
+
+### Audit & Completion
+Full codebase audit identified 15 items that were coded but not fully wired. Completed all actionable items:
+
+### Changes
+- **`engine/simulation.py`**: `_apply_firm_policy()` now applies wage_adjustment and returns loan_requests dict; renamed `_compute_household_budgets` to `_apply_household_policy()` which also sets labor_participation and reservation_wage on households
+- **`markets/credit.py`**: `clear()` accepts `policy_loan_requests` dict — policy-specified loan amounts override the built-in borrowing heuristic
+- **`policies/rule_based.py`**: `RuleBasedHouseholdPolicy` now has configurable reservation wage adjustment (lower when unemployed, raise when employed) and proper constructor
+- **`forecasting/backtesting.py`**:
+  - Added PIT uniformity via KS statistic (`_ks_uniformity()`)
+  - Skill scores now computed vs best benchmark (not just random walk)
+  - Added CRPS skill score vs random walk CRPS
+  - Added `_benchmark_crps()` helper
+  - PIT uniformity included in `summary_table()`
+- **Data sources** (`fred.py`, `bea.py`, `imf.py`): All bare `pass` in cache read exceptions replaced with `logger.debug()` messages
+- **Backtesting**: Benchmark forecast failures now logged via `logger.debug()`
+- **`rl/__init__.py`**: Auto-registers gymnasium environments on import (no-op if gymnasium not installed); added `register_gymnasium_envs()` convenience function
+
+### Policy Action Fields Now Fully Wired
+| Action Field | Where Applied |
+|---|---|
+| FirmAction.vacancies | `_apply_firm_policy` → firm.vacancies |
+| FirmAction.price_adjustment | `_apply_firm_policy` → firm.price |
+| FirmAction.wage_adjustment | `_apply_firm_policy` → firm.posted_wage |
+| FirmAction.loan_request | `_apply_firm_policy` → credit_market.clear(policy_loan_requests) |
+| HouseholdAction.consumption_fraction | `_apply_household_policy` → goods_market.clear(consumption_budgets) |
+| HouseholdAction.labor_participation | `_apply_household_policy` → hh.labor_participation |
+| HouseholdAction.reservation_wage_adjustment | `_apply_household_policy` → hh.reservation_wage |
+| BankAction.base_rate_adjustment | `_apply_bank_policy` → bank.base_interest_rate |
+| BankAction.capital_target_adjustment | `_apply_bank_policy` → bank.capital_adequacy_ratio |
+| BankAction.risk_premium_adjustment | `_apply_bank_policy` → bank.risk_premium |
+| GovernmentAction.tax_rate | `_apply_govt_policy` → govt.income_tax_rate |
+| GovernmentAction.transfer_per_unemployed | `_apply_govt_policy` → govt.transfer_per_unemployed |
+| GovernmentAction.spending_per_period | `_apply_govt_policy` → govt.spending_per_period |
+
+### Test Results
+- **557 tests passing** — zero regressions
+- All existing tests pass with the new wiring (backward compatible)
+
 ### Next Steps
-- Profile and parallelize calibration/forecasting runs
-- Build PyTorch transformer training for production
+- Profile and parallelize calibration/forecasting runs (Phase M8)
+- Build PyTorch transformer training for production (Phase M7 completion)
 - Run FRED data pulls with real API key and calibrate to empirical moments

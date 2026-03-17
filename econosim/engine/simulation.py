@@ -359,8 +359,11 @@ def build_household_state(hh: Household) -> HouseholdState:
     )
 
 
-def _compute_household_budgets(state: SimulationState, macro: MacroState) -> dict[str, float] | None:
-    """If household policy is set, compute consumption budgets for all households."""
+def _apply_household_policy(state: SimulationState, macro: MacroState) -> dict[str, float] | None:
+    """Apply household policy: set labor participation, reservation wage, and consumption budgets.
+
+    Returns consumption budgets dict (agent_id -> spending) or None if no policy.
+    """
     policy = state.household_policy
     if policy is None:
         return None
@@ -369,18 +372,29 @@ def _compute_household_budgets(state: SimulationState, macro: MacroState) -> dic
     for hh in state.households:
         hs = build_household_state(hh)
         action = policy.act(hs, macro)
-        # Compute budget from consumption fraction
+
+        # Apply labor participation
+        hh.labor_participation = action.labor_participation
+
+        # Apply reservation wage adjustment
+        hh.reservation_wage = max(0.0, hh.reservation_wage * action.reservation_wage_adjustment)
+
+        # Compute consumption budget
         budget = action.consumption_fraction * max(0.0, hh.deposits)
         budgets[hh.agent_id] = min(budget, max(0.0, hh.deposits))
     return budgets
 
 
-def _apply_firm_policy(state: SimulationState, macro: MacroState) -> None:
-    """Apply firm policy actions: set vacancies and price adjustments."""
+def _apply_firm_policy(state: SimulationState, macro: MacroState) -> dict[str, float]:
+    """Apply firm policy actions: set vacancies, price, wage adjustments.
+
+    Returns dict of firm_id -> loan_request for use in credit market.
+    """
     policy = state.firm_policy
     if policy is None:
-        return
+        return {}
 
+    loan_requests: dict[str, float] = {}
     for firm in state.firms:
         fs = build_firm_state(firm)
         action = policy.act(fs, macro)
@@ -391,6 +405,16 @@ def _apply_firm_policy(state: SimulationState, macro: MacroState) -> None:
         # Apply price adjustment
         firm.price = round_money(firm.price * action.price_adjustment)
         firm.price = max(0.01, firm.price)
+
+        # Apply wage adjustment
+        firm.posted_wage = round_money(firm.posted_wage * action.wage_adjustment)
+        firm.posted_wage = max(1.0, firm.posted_wage)
+
+        # Collect loan requests for credit market
+        if action.loan_request > 0:
+            loan_requests[firm.agent_id] = action.loan_request
+
+    return loan_requests
 
 
 def _apply_bank_policy(state: SimulationState, macro: MacroState) -> None:
@@ -443,8 +467,9 @@ def step(state: SimulationState) -> dict[str, Any]:
     macro = build_macro_state(state)
     _apply_bank_policy(state, macro)
     _apply_govt_policy(state, macro)
+    policy_loan_requests: dict[str, float] = {}
     if state.firm_policy is not None:
-        _apply_firm_policy(state, macro)
+        policy_loan_requests = _apply_firm_policy(state, macro)
 
     # ── 1b. Reset extension period state ─────────────────────────
     if state.debt_manager is not None:
@@ -461,6 +486,7 @@ def step(state: SimulationState) -> dict[str, Any]:
         firms=state.firms,
         bank=state.bank,
         period=period,
+        policy_loan_requests=policy_loan_requests,
     )
 
     # Record credit flows in network
@@ -489,8 +515,8 @@ def step(state: SimulationState) -> dict[str, Any]:
         for firm in state.firms:
             firm.adjust_price()
 
-    # Compute household consumption budgets from policy (if active)
-    hh_budgets = _compute_household_budgets(state, macro)
+    # Apply household policy: labor participation, reservation wage, consumption budgets
+    hh_budgets = _apply_household_policy(state, macro)
 
     state.goods_market.clear(
         households=state.households,

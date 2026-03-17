@@ -60,8 +60,8 @@ class ImfSdmxClient:
             try:
                 with open(cache_file) as f:
                     return json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug(f"IMF cache read failed: {e}")
 
         import urllib.request
         import urllib.error
