@@ -515,6 +515,243 @@ def list_measurement_series():
     }
 
 
+# ── Natural Language Interface ───────────────────────────────────
+
+
+class NLQueryRequest(BaseModel):
+    query: str = Field(..., min_length=3, max_length=2000)
+
+
+@app.post("/api/nl/query")
+def nl_query(req: NLQueryRequest):
+    """Process a natural language economic query.
+
+    Translates natural language into simulation config, runs it,
+    and returns structured results.
+    """
+    try:
+        from econosim.llm.client import LLMClient, LLMConfig
+        from econosim.nl.interpreter import NLInterpreter
+
+        config = LLMConfig.from_env()
+        if not config.api_key:
+            raise HTTPException(
+                status_code=400,
+                detail="LLM_API_KEY or OPENAI_API_KEY environment variable required "
+                "for natural language queries.",
+            )
+
+        client = LLMClient(config)
+        interpreter = NLInterpreter(client)
+        result = interpreter.interpret_and_run(req.query)
+        client.close()
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/nl/interpret")
+def nl_interpret(req: NLQueryRequest):
+    """Interpret a natural language query without running a simulation."""
+    try:
+        from econosim.llm.client import LLMClient, LLMConfig
+        from econosim.nl.interpreter import NLInterpreter
+
+        config = LLMConfig.from_env()
+        if not config.api_key:
+            raise HTTPException(
+                status_code=400,
+                detail="LLM_API_KEY or OPENAI_API_KEY environment variable required.",
+            )
+
+        client = LLMClient(config)
+        interpreter = NLInterpreter(client)
+        result = interpreter.interpret(req.query)
+        client.close()
+        return result.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Report Generation ────────────────────────────────────────────
+
+
+class ReportRequest(BaseModel):
+    template: str = Field("macro_forecast", pattern="^(macro_forecast|scenario_comparison|stress_test)$")
+    title: str = ""
+    format: str = Field("html", pattern="^(html|markdown|json)$")
+    num_periods: int = Field(120, ge=10, le=500)
+    seed: int = Field(42, ge=0)
+    use_llm: bool = False
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/report")
+def generate_report(req: ReportRequest):
+    """Generate an economic analysis report."""
+    try:
+        from econosim.reports.engine import ReportEngine, ReportConfig
+
+        config = SimulationConfig(
+            num_periods=req.num_periods,
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        result = run_experiment(config)
+        df = result["dataframe"]
+
+        llm_client = None
+        if req.use_llm:
+            from econosim.llm.client import LLMClient, LLMConfig
+            llm_config = LLMConfig.from_env()
+            if llm_config.api_key:
+                llm_client = LLMClient(llm_config)
+
+        engine = ReportEngine(llm_client=llm_client)
+        report_config = ReportConfig(
+            template_name=req.template,
+            title=req.title,
+            format=req.format,
+        )
+
+        report = engine.generate(df, report_config)
+
+        if llm_client:
+            llm_client.close()
+
+        if req.format == "html":
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=report.to_html())
+        elif req.format == "markdown":
+            return {"content": report.to_markdown()}
+        else:
+            return report.to_json()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Forum Discussion ─────────────────────────────────────────────
+
+
+class ForumRequest(BaseModel):
+    query: str = ""
+    num_rounds: int = Field(2, ge=1, le=5)
+    agents: list[str] = Field(
+        default_factory=lambda: [
+            "macro_analyst", "labor_analyst", "financial_analyst",
+            "policy_analyst", "risk_analyst",
+        ]
+    )
+    num_periods: int = Field(120, ge=10, le=500)
+    seed: int = Field(42, ge=0)
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/forum")
+def run_forum(req: ForumRequest):
+    """Run a multi-agent analysis forum on simulation data."""
+    try:
+        from econosim.llm.client import LLMClient, LLMConfig
+        from econosim.forum.engine import ForumEngine, ForumConfig
+
+        llm_config = LLMConfig.from_env()
+        if not llm_config.api_key:
+            raise HTTPException(
+                status_code=400,
+                detail="LLM_API_KEY or OPENAI_API_KEY environment variable required for forum.",
+            )
+
+        config = SimulationConfig(
+            num_periods=req.num_periods,
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        result = run_experiment(config)
+        df = result["dataframe"]
+
+        client = LLMClient(llm_config)
+        forum_engine = ForumEngine(client)
+        forum_config = ForumConfig(
+            agents=req.agents,
+            num_rounds=req.num_rounds,
+        )
+
+        session = forum_engine.run(df, forum_config, query=req.query)
+        client.close()
+
+        return session.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Analysis ─────────────────────────────────────────────────────
+
+
+class AnalysisRequest(BaseModel):
+    num_periods: int = Field(120, ge=10, le=500)
+    seed: int = Field(42, ge=0)
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/analyze")
+def analyze(req: AnalysisRequest):
+    """Run simulation and return structured analysis."""
+    try:
+        from econosim.data.analysis import analyze_simulation_data
+
+        config = SimulationConfig(
+            num_periods=req.num_periods,
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        result = run_experiment(config)
+        analysis = analyze_simulation_data(result["dataframe"])
+
+        return {
+            "regime": analysis.regime,
+            "moments": analysis.moments,
+            "trends": analysis.trends,
+            "key_events": analysis.key_events,
+            "correlations": analysis.correlations,
+            "summary_stats": {
+                k: v for k, v in analysis.summary_stats.items()
+                if k in ("gdp", "unemployment_rate", "avg_price", "gini_coefficient", "total_credit")
+            },
+            "narrative": analysis.to_narrative(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)

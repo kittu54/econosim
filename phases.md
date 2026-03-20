@@ -137,7 +137,35 @@
 - **Tests**: 575+ passing
 - **New modules**: data, measurement, policies, calibration, forecasting, learning, rl/macro_env
 
+## Phase M10 — LLM-Powered Intelligence Layer
+**Status**: complete
+**Dependencies**: M3, M9
+**Scope**:
+- OpenAI-compatible LLM client with retry logic and mock testing support
+- Agent memory system (rolling buffer with importance-based pruning)
+- Economic personality system (3 household, 3 firm, 2 bank, 2 government personalities)
+- LLM-powered policies for all 4 agent types (plug into existing policy interfaces)
+- Empirical data analysis pipeline (moments, trends, regime detection, event detection)
+- Report generation engine (HTML/Markdown/JSON) with 3 templates (macro forecast, scenario comparison, stress test)
+- Natural language query interpreter (translates English → simulation config → results)
+- Multi-agent collaboration forum (5 specialist analysts + moderator)
+- API endpoints: /api/nl/query, /api/nl/interpret, /api/report, /api/forum, /api/analyze
+**Success criteria**: Users can describe economic scenarios in natural language, get simulation results with professional reports, and multi-agent analysis discussions
+
+---
+
+## Current Status Summary
+- **Phases M0-M7**: Complete (core implementation)
+- **Phase M3**: All four policy interfaces wired into engine, calibration, forecasting, and RL
+- **Phase M8 (performance)**: Not started
+- **Phase M9 (platform)**: In progress — API complete (simulate/calibrate/forecast/backtest/data), Streamlit fan charts, FRED pipelines
+- **Phase M10 (LLM intelligence)**: Complete — LLM agents, reports, NL interface, forum
+- **Tests**: 629 passing
+- **New modules**: data, measurement, policies, calibration, forecasting, learning, rl/macro_env, llm, reports, nl, forum
+
 ## Next Priority Actions
 1. Profile and parallelize calibration/forecasting runs
 2. Build PyTorch transformer training for production
 3. Run FRED data pulls with real API key and calibrate to empirical moments
+4. Add LLM-powered agents to Next.js dashboard UI
+5. Docker deployment configuration

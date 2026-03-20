@@ -326,7 +326,70 @@ Cross-referenced phases.md, project_log.md, PHASES.md, PROJECT_LOG.md, and READM
 | `/api/models` | GET | List model components |
 | `/api/measurement/series` | GET | List measurement series |
 
+---
+
+## 2026-03-20 — Phase M10: LLM-Powered Intelligence Layer
+
+### Inspiration
+Modeled after BettaFish (multi-agent analysis platform) and MiroFish (multi-agent AI prediction system with LLM-powered autonomous agents, forum discussions, and report generation).
+
+### New Modules
+
+**`econosim/llm/`** — LLM Integration Layer:
+- `client.py`: OpenAI-compatible LLM client with retry logic, `MockLLMClient` for testing
+- `memory.py`: `AgentMemory` with importance-based pruning, serialization, category/period filtering
+- `prompts.py`: System/decision prompt templates for all 4 agent types + 5 analyst types, personality library (10 personalities)
+
+**`econosim/policies/llm_policies.py`** — LLM-Powered Economic Agents:
+- `LLMFirmPolicy`, `LLMHouseholdPolicy`, `LLMBankPolicy`, `LLMGovernmentPolicy`
+- Each implements the existing policy interface (swappable with rule-based)
+- LLM makes decisions based on current state + personality + memory
+- Safe value clamping, graceful fallback on LLM failure
+- Memory accumulates decisions with reasoning across periods
+
+**`econosim/data/analysis.py`** — Empirical Data Analysis:
+- `EmpiricalAnalysis` dataclass with moments, trends, regime, events, correlations
+- `analyze_simulation_data()`: computes standard macro moments, detects trends, classifies regime
+- `load_and_analyze()`: entry point for simulation, CSV, or FRED data sources
+- Regime classification: normal, recession, expansion, crisis
+- Event detection: GDP contractions, unemployment spikes, inflation/deflation episodes
+
+**`econosim/reports/`** — Report Generation Engine:
+- `templates.py`: 3 templates (macro_forecast: 8 sections, scenario_comparison: 5, stress_test: 5)
+- `engine.py`: `ReportEngine` generates reports with LLM or rule-based fallback
+- Output formats: HTML (dark-theme styled), Markdown, JSON
+- HTML reports include table of contents, styled sections, print-friendly CSS
+
+**`econosim/nl/`** — Natural Language Interface:
+- `interpreter.py`: `NLInterpreter` translates English → simulation config
+- Handles intents: simulate, forecast, compare, analyze, explain
+- `interpret_and_run()`: full pipeline from query → simulation → analysis
+- Rule-based fallback when LLM unavailable (keyword detection for recession/boom/etc.)
+
+**`econosim/forum/`** — Agent Collaboration Forum:
+- `engine.py`: `ForumEngine` orchestrates multi-agent discussions
+- 5 specialist analysts: macro, labor, financial, policy, risk
+- Multi-round discussion with moderator synthesis
+- Final output: consensus, key findings, disagreements, recommendations
+- Full transcript generation and JSON serialization
+
+### API Endpoints Added
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/nl/query` | POST | Natural language query → simulation → results |
+| `/api/nl/interpret` | POST | Natural language → simulation config (no run) |
+| `/api/report` | POST | Generate professional economic report (HTML/MD/JSON) |
+| `/api/forum` | POST | Run multi-agent analysis forum |
+| `/api/analyze` | POST | Run simulation and return structured analysis |
+
+### Test Results
+- **629 tests passing** (575 + 54 new)
+- 54 new tests across: LLM client, memory, prompts, personalities, all 4 LLM policies, data analysis, report engine, NL interpreter, forum engine
+- Zero regressions
+
 ### Next Steps
 - Profile and parallelize calibration/forecasting runs (Phase M8)
 - Build PyTorch transformer training for production (Phase M7 completion)
 - Run FRED data pulls with real API key and calibrate to empirical moments
+- Add LLM-powered agents to Next.js dashboard UI
+- Docker deployment configuration
