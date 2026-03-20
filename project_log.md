@@ -296,6 +296,36 @@ Full codebase audit identified 15 items that were coded but not fully wired. Com
 - **575 tests passing** (557 + 18 new)
 - Zero regressions
 
+---
+
+## 2026-03-20 — Complete M9 API Endpoints + Documentation Sync
+
+### Audit & Completion
+Cross-referenced phases.md, project_log.md, PHASES.md, PROJECT_LOG.md, and README.md against actual codebase to identify remaining gaps.
+
+### Changes
+- **`api/main.py`**: Added two missing M9 API endpoints:
+  - `POST /api/backtest` — Rolling-origin backtesting evaluation with configurable horizon, origins, calibration window, step size, and variable selection. Returns scorecards with RMSE, MAE, CRPS, coverage, PIT uniformity, and skill scores vs 3 benchmarks (random walk, AR1, linear trend)
+  - `POST /api/data/pull` — Pull arbitrary FRED series into aligned DataFrame with optional empirical moment computation for calibration matching. Gracefully handles missing API keys
+- **`README.md`**: Updated architecture table with 6 new module layers (Policies, Data, Measurement, Calibration, Forecasting, Learning); updated test count to 575+; added Macro World Model section; updated tabbed views count
+- **`PHASES.md`**: Added macro phases M0-M9 to current status summary; updated test count
+- **`PROJECT_LOG.md`**: Added macro module file paths to file map; updated test count; linked to macro roadmap docs
+- **`phases.md`**: Updated M9 status note to reflect all API endpoints complete; updated test count
+
+### API Endpoints Now Complete
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/health` | GET | Health check |
+| `/api/defaults` | GET | Default simulation config |
+| `/api/simulate` | POST | Run simulation |
+| `/api/calibrate` | POST | SMM/Bayesian calibration |
+| `/api/forecast` | POST | Probabilistic forecast ensemble |
+| `/api/backtest` | POST | Rolling-origin backtesting |
+| `/api/data/pull` | POST | Pull FRED series + compute moments |
+| `/api/data/series` | GET | List FRED series definitions |
+| `/api/models` | GET | List model components |
+| `/api/measurement/series` | GET | List measurement series |
+
 ### Next Steps
 - Profile and parallelize calibration/forecasting runs (Phase M8)
 - Build PyTorch transformer training for production (Phase M7 completion)

@@ -314,12 +314,15 @@
 - **Phases 0-3c**: ✅ Complete (full RL training pipeline)
 - **Phase 4**: ✅ Complete (advanced economic extensions)
 - **Phase 5 (Platform)**: ✅ Partial (Next.js UI + FastAPI backend)
-- **Tests**: 494 passing, 0 warnings
+- **Macro Phases M0-M7**: ✅ Complete (data, measurement, policies, calibration, forecasting, backtesting, transformer)
+- **Phase M8 (Performance)**: Not started
+- **Phase M9 (Platform)**: In progress — API endpoints, Streamlit fan charts, FRED pipelines
+- **Tests**: 575+ passing, 0 warnings
 - **Dashboard (legacy)**: `streamlit run dashboard.py` at `http://localhost:8501`
 - **Dashboard (modern)**: `cd web && npm run dev` at `http://localhost:3000`
-- **API**: `cd api && uvicorn main:app` at `http://localhost:8000`
-- **RL**: Ready for training (`scripts/train_firm_rl.py`)
-- **Next immediate steps**: Run RL training experiments, deploy to Vercel, data persistence, collaboration features
+- **API**: `python -m uvicorn api.main:app --reload` at `http://localhost:8000`
+- **RL**: Ready for training (`scripts/train_agent.py`)
+- See [phases.md](phases.md) for the macro world model roadmap
 
 ---
 

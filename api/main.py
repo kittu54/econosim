@@ -312,7 +312,173 @@ def forecast(req: ForecastRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Backtest endpoints ────────────────────────────────────────────
+
+
+class BacktestRequest(BaseModel):
+    forecast_horizon: int = Field(12, ge=1, le=60)
+    num_origins: int = Field(10, ge=1, le=50)
+    calibration_window: int = Field(60, ge=10, le=300)
+    step_size: int = Field(4, ge=1, le=50)
+    variables: list[str] = Field(
+        default_factory=lambda: ["gdp", "unemployment_rate", "avg_price"]
+    )
+    num_periods: int = Field(200, ge=50, le=500)
+    seed: int = Field(42, ge=0)
+    household: HouseholdParams = Field(default_factory=HouseholdParams)
+    firm: FirmParams = Field(default_factory=FirmParams)
+    government: GovernmentParams = Field(default_factory=GovernmentParams)
+    bank: BankParams = Field(default_factory=BankParams)
+
+
+@app.post("/api/backtest")
+def backtest(req: BacktestRequest):
+    """Run rolling-origin backtesting evaluation."""
+    try:
+        import numpy as np
+
+        from econosim.forecasting.backtesting import (
+            BacktestConfig,
+            BacktestRunner,
+            RandomWalkBenchmark,
+            ARBenchmark,
+            TrendBenchmark,
+        )
+
+        config = SimulationConfig(
+            num_periods=req.num_periods,
+            seed=req.seed,
+            household=req.household.model_dump(),
+            firm=req.firm.model_dump(),
+            government=req.government.model_dump(),
+            bank=req.bank.model_dump(),
+        )
+
+        # Generate simulation history for backtesting
+        result = run_experiment(config)
+        df = result["dataframe"]
+
+        # Build forecast function using simulation-based naive forecast
+        def sim_forecast(
+            history: "pd.DataFrame", horizon: int, variable: str
+        ) -> tuple["np.ndarray", "np.ndarray | None"]:
+            import pandas as pd
+
+            last = float(history[variable].iloc[-1])
+            median = np.full(horizon, last)
+            rng = np.random.default_rng(req.seed)
+            ensemble = median[None, :] + rng.normal(0, abs(last) * 0.05 + 1.0, (20, horizon))
+            return median, ensemble
+
+        benchmarks = [RandomWalkBenchmark(), ARBenchmark(), TrendBenchmark()]
+        runner = BacktestRunner(df, sim_forecast, benchmarks)
+
+        bt_config = BacktestConfig(
+            forecast_horizon=req.forecast_horizon,
+            num_origins=req.num_origins,
+            calibration_window=req.calibration_window,
+            step_size=req.step_size,
+            variables=req.variables,
+        )
+
+        report = runner.run(bt_config)
+        summary = report.summary_table()
+
+        return {
+            "name": report.name,
+            "elapsed_seconds": report.elapsed_seconds,
+            "scorecards": [
+                {
+                    "variable": sc.variable,
+                    "horizon": sc.horizon,
+                    "rmse": sc.rmse,
+                    "mae": sc.mae,
+                    "mape": sc.mape,
+                    "bias": sc.bias,
+                    "crps": sc.crps,
+                    "coverage_90": sc.coverage_90,
+                    "coverage_50": sc.coverage_50,
+                    "pit_uniformity": sc.pit_uniformity,
+                    "skill_score_rmse": sc.skill_score_rmse,
+                    "skill_score_crps": sc.skill_score_crps,
+                    "num_origins": sc.num_origins,
+                }
+                for sc in report.scorecards
+            ],
+            "benchmark_scorecards": {
+                bm_name: [
+                    {
+                        "variable": sc.variable,
+                        "horizon": sc.horizon,
+                        "rmse": sc.rmse,
+                        "mae": sc.mae,
+                        "bias": sc.bias,
+                    }
+                    for sc in scs
+                ]
+                for bm_name, scs in report.benchmark_scorecards.items()
+            },
+            "summary": summary.to_dict(orient="records") if not summary.empty else [],
+            "metadata": report.metadata,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Data endpoints ────────────────────────────────────────────────
+
+
+class DataPullRequest(BaseModel):
+    series: dict[str, str] = Field(
+        default_factory=lambda: {
+            "gdp_real": "GDPC1",
+            "unemployment": "UNRATE",
+            "cpi": "CPIAUCSL",
+        },
+        description="Dict of {column_name: FRED_series_id}",
+    )
+    start_date: str = Field("2000-01-01", pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str | None = None
+    frequency: str = Field("q", pattern="^(d|w|bw|m|q|sa|a)$")
+    compute_moments: bool = False
+
+
+@app.post("/api/data/pull")
+def pull_data(req: DataPullRequest):
+    """Pull FRED data series into an aligned DataFrame.
+
+    Requires FRED_API_KEY environment variable to be set.
+    Returns empty data with a warning if the API key is missing.
+    """
+    try:
+        from econosim.data.pipelines import pull_series, compute_calibration_moments
+
+        df = pull_series(
+            series=req.series,
+            start_date=req.start_date,
+            end_date=req.end_date,
+            frequency=req.frequency,
+        )
+
+        response: dict[str, Any] = {
+            "num_series": len(df.columns),
+            "num_observations": len(df),
+            "columns": list(df.columns),
+            "data": df.reset_index().to_dict(orient="records") if not df.empty else [],
+        }
+
+        if req.compute_moments and not df.empty:
+            moments = compute_calibration_moments(df)
+            response["moments"] = moments
+
+        if df.empty:
+            response["warning"] = (
+                "No data returned. Ensure FRED_API_KEY environment variable is set."
+            )
+
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/data/series")

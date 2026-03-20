@@ -162,7 +162,7 @@ econosim/
 
 ## 4. What Is Currently In Progress
 
-- Running RL training experiments with the new unified training pipeline
+- **Macro World Model (Phases M0-M9)**: Forecasting-grade macro layer — see [phases.md](phases.md) and [project_log.md](project_log.md) for detailed status
 - Platform enhancements (Phase 5): data persistence, collaboration features
 
 ---
@@ -217,6 +217,21 @@ econosim/
 | `econosim/extensions/bonds.py` | Bond markets, yield curves, government debt manager |
 | `econosim/extensions/expectations.py` | Adaptive, rolling, weighted expectation models |
 | `econosim/extensions/networks.py` | Trade/credit network graphs, contagion, systemic risk |
+| `econosim/policies/interfaces.py` | Swappable policy interfaces (Firm, Household, Bank, Government) |
+| `econosim/policies/rule_based.py` | Rule-based policy implementations |
+| `econosim/data/sources/fred.py` | FRED API client with caching and vintage support |
+| `econosim/data/sources/bea.py` | BEA NIPA data client |
+| `econosim/data/sources/imf.py` | IMF SDMX data client |
+| `econosim/data/pipelines.py` | High-level FRED data pipeline and calibration moments |
+| `econosim/data/storage/` | DataStore, DataRegistry (versioned Parquet + metadata) |
+| `econosim/measurement/national_accounts.py` | Simulation → observable macro series mapper |
+| `econosim/calibration/parameters.py` | ParameterRegistry with priors, bounds, transforms |
+| `econosim/calibration/moments.py` | MomentDefinition, MomentSet, default US moments |
+| `econosim/calibration/engine.py` | SMM and Bayesian calibrators |
+| `econosim/forecasting/engine.py` | ForecastEnsembleRunner, DensityForecast |
+| `econosim/forecasting/backtesting.py` | BacktestRunner, benchmarks, CRPS, PIT |
+| `econosim/learning/transformers/` | MacroTransformer, ResidualForecaster, Emulator |
+| `econosim/rl/macro_env.py` | MacroEnv (no gymnasium dependency) |
 | `scripts/train_agent.py` | Unified RL training (all 4 agents, PPO/A2C, normalization) |
 | `scripts/train_multiagent.py` | Multi-agent training (sequential + simultaneous modes) |
 | `scripts/compare_policies.py` | RL vs baseline comparison across shock scenarios |
@@ -305,7 +320,7 @@ econosim/
 
 ## 11. Current Working State
 
-- **All 494 tests pass** with 0 warnings
+- **All 575+ tests pass** with 0 warnings
 - Package installs via `pip install -e ".[dev,rl]"`
 - Python 3.11+ required
 - Simulation builds, runs, and produces metrics

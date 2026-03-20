@@ -125,7 +125,7 @@
 - Experiment metadata, reproducibility hashes
 - Dashboard: observed data browser, calibration diagnostics, forecast fan charts
 **Success criteria**: End-to-end workflow accessible via API; dashboard shows forecast fan charts
-**Note**: API endpoints complete; dashboard and persistence pending
+**Note**: API endpoints complete (simulate, calibrate, forecast, backtest, data pull); dashboard fan charts in Streamlit; persistence pending
 
 ---
 
@@ -133,8 +133,8 @@
 - **Phases M0-M7**: Complete (core implementation)
 - **Phase M3**: All four policy interfaces wired into engine, calibration, forecasting, and RL
 - **Phase M8 (performance)**: Not started
-- **Phase M9 (platform)**: In progress — API done, dashboard with fan charts, FRED pipelines
-- **Tests**: 557 passing
+- **Phase M9 (platform)**: In progress — API complete (simulate/calibrate/forecast/backtest/data), Streamlit fan charts, FRED pipelines
+- **Tests**: 575+ passing
 - **New modules**: data, measurement, policies, calibration, forecasting, learning, rl/macro_env
 
 ## Next Priority Actions
