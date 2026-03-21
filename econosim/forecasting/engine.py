@@ -179,11 +179,16 @@ class ForecastEnsembleRunner:
         calibration_result: CalibrationResult | None = None,
         sim_runner: Callable[[SimulationConfig], pd.DataFrame] | None = None,
         policies: dict[str, Any] | None = None,
+        parallel: bool = True,
+        max_workers: int | None = None,
     ) -> None:
         self.base_config = base_config
         self.calibration = calibration_result
         self.policies = policies or {}
         self._sim_runner = sim_runner or self._make_policy_runner()
+        # Parallel only with default runner (custom runners may not be picklable)
+        self._use_parallel = parallel and sim_runner is None and not policies
+        self._max_workers = max_workers
 
         # Override if user provided explicit runner
         if sim_runner is not None:
@@ -249,9 +254,10 @@ class ForecastEnsembleRunner:
             else:
                 param_draws = [None] * config.num_parameter_draws
 
-        # Run ensemble
+        # Build all run configs up-front
         all_paths: dict[str, list[np.ndarray]] = {v: [] for v in config.variables}
         total_runs = config.num_parameter_draws * config.num_shock_draws
+        run_configs: list[SimulationConfig] = []
 
         for p_idx in range(config.num_parameter_draws):
             for s_idx in range(config.num_shock_draws):
@@ -259,28 +265,43 @@ class ForecastEnsembleRunner:
                 sim_config = self._build_run_config(
                     config, scenario, param_draws, p_idx, run_seed
                 )
-
-                # Add stochastic shocks from shock processes
                 if scenario.shock_processes:
                     self._add_shock_path(sim_config, scenario, config, rng)
+                run_configs.append(sim_config)
 
+        # Execute — parallel or sequential
+        if self._use_parallel and len(run_configs) > 1:
+            from econosim.parallel import run_simulations_parallel
+            dataframes = run_simulations_parallel(
+                run_configs, max_workers=self._max_workers,
+            )
+        else:
+            dataframes = []
+            for sim_config in run_configs:
                 try:
-                    df = self._sim_runner(sim_config)
-                    # Extract forecast horizon from end of simulation
-                    forecast_start = max(0, len(df) - config.horizon)
-                    for var in config.variables:
-                        if var in df.columns:
-                            path = df[var].iloc[forecast_start:].values
-                            if len(path) == config.horizon:
-                                all_paths[var].append(path)
-                            else:
-                                # Pad if needed
-                                padded = np.full(config.horizon, np.nan)
-                                padded[:len(path)] = path
-                                all_paths[var].append(padded)
+                    dataframes.append(self._sim_runner(sim_config))
                 except Exception as e:
                     logger.warning(f"Forecast run failed: {e}")
-                    continue
+                    dataframes.append(None)
+
+        # Collect forecast paths from results
+        for df in dataframes:
+            if df is None:
+                continue
+            try:
+                forecast_start = max(0, len(df) - config.horizon)
+                for var in config.variables:
+                    if var in df.columns:
+                        path = df[var].iloc[forecast_start:].values
+                        if len(path) == config.horizon:
+                            all_paths[var].append(path)
+                        else:
+                            padded = np.full(config.horizon, np.nan)
+                            padded[:len(path)] = path
+                            all_paths[var].append(padded)
+            except Exception as e:
+                logger.warning(f"Path extraction failed: {e}")
+                continue
 
         # Build DensityForecast
         forecast = DensityForecast(

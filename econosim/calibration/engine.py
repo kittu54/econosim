@@ -98,6 +98,8 @@ class SimulationObjective:
         profile: CalibrationProfile,
         sim_runner: Callable[[SimulationConfig], pd.DataFrame] | None = None,
         policies: dict[str, Any] | None = None,
+        parallel: bool = True,
+        max_workers: int | None = None,
     ) -> None:
         self.base_config = base_config
         self.registry = registry
@@ -107,6 +109,10 @@ class SimulationObjective:
         self._sim_runner = sim_runner or self._make_policy_runner()
         self._eval_count = 0
         self._W = moments.weighting_matrix(profile.weighting_method)
+        # Parallel execution: only when using the default runner (custom runners
+        # may not be picklable for multiprocessing)
+        self._use_parallel = parallel and sim_runner is None and not policies
+        self._max_workers = max_workers
 
         # Override sim_runner if user provided one explicitly
         if sim_runner is not None:
@@ -165,20 +171,34 @@ class SimulationObjective:
         self._eval_count += 1
         config = self._apply_params(param_dict)
 
-        # Run multiple simulations and average moments
+        # Run multiple simulations and average moments — parallel when possible
         all_moments = []
-        for seed in self._seeds:
-            cfg = config.model_copy(update={
-                "seed": seed,
-                "num_periods": self.profile.num_periods,
-            })
-            try:
-                df = self._sim_runner(cfg)
-                sim_moments = self.moments.compute_all(df)
-                all_moments.append(sim_moments)
-            except Exception as e:
-                logger.warning(f"Simulation failed with seed {seed}: {e}")
-                continue
+
+        if self._use_parallel and len(self._seeds) > 1:
+            from econosim.parallel import parallel_moment_evaluation
+            dfs = parallel_moment_evaluation(
+                config, self._seeds, self.profile.num_periods,
+                max_workers=self._max_workers,
+            )
+            for df in dfs:
+                try:
+                    sim_moments = self.moments.compute_all(df)
+                    all_moments.append(sim_moments)
+                except Exception as e:
+                    logger.warning(f"Moment computation failed: {e}")
+        else:
+            for seed in self._seeds:
+                cfg = config.model_copy(update={
+                    "seed": seed,
+                    "num_periods": self.profile.num_periods,
+                })
+                try:
+                    df = self._sim_runner(cfg)
+                    sim_moments = self.moments.compute_all(df)
+                    all_moments.append(sim_moments)
+                except Exception as e:
+                    logger.warning(f"Simulation failed with seed {seed}: {e}")
+                    continue
 
         if not all_moments:
             return np.inf, np.full(len(self.moments), np.nan)

@@ -76,8 +76,17 @@ def run_batch(
     base_config: SimulationConfig,
     seeds: list[int],
     output_dir: str | Path | None = None,
+    parallel: bool = False,
+    max_workers: int | None = None,
 ) -> dict[str, Any]:
     """Run the same config with multiple seeds for statistical analysis.
+
+    Args:
+        base_config: Base simulation configuration.
+        seeds: List of random seeds.
+        output_dir: Optional output directory.
+        parallel: Use parallel execution for multiple seeds.
+        max_workers: Max parallel workers.
 
     Returns dict with keys: name, seeds, runs (list of results),
     aggregate (aggregated DataFrame with CI bands), summary.
@@ -85,12 +94,34 @@ def run_batch(
     runs: list[dict[str, Any]] = []
     dataframes: list[pd.DataFrame] = []
 
-    for seed in seeds:
-        config = base_config.model_copy(update={"seed": seed, "name": f"{base_config.name}_s{seed}"})
-        result = run_experiment(config, output_dir)
-        runs.append(result)
-        dataframes.append(result["dataframe"])
-        logger.info(f"Completed run with seed={seed}")
+    if parallel and len(seeds) > 1:
+        from econosim.parallel import run_simulations_parallel
+        configs = [
+            base_config.model_copy(update={"seed": seed, "name": f"{base_config.name}_s{seed}"})
+            for seed in seeds
+        ]
+        results_dfs = run_simulations_parallel(configs, max_workers=max_workers)
+        for seed, cfg, df in zip(seeds, configs, results_dfs):
+            if df is not None:
+                stats = summary_statistics(df)
+                result = {
+                    "name": cfg.name,
+                    "seed": seed,
+                    "num_periods": cfg.num_periods,
+                    "summary": stats,
+                    "final_metrics": {},
+                    "dataframe": df,
+                }
+                runs.append(result)
+                dataframes.append(df)
+                logger.info(f"Completed run with seed={seed}")
+    else:
+        for seed in seeds:
+            config = base_config.model_copy(update={"seed": seed, "name": f"{base_config.name}_s{seed}"})
+            result = run_experiment(config, output_dir)
+            runs.append(result)
+            dataframes.append(result["dataframe"])
+            logger.info(f"Completed run with seed={seed}")
 
     agg = aggregate_runs(dataframes)
 
