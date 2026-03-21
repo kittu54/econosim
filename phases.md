@@ -117,15 +117,17 @@
 ---
 
 ## Phase M9 — API / Persistence / Dashboard Upgrade
-**Status**: in_progress
+**Status**: complete
 **Dependencies**: M5, M6
 **Scope**:
 - Extended FastAPI endpoints for data pull, calibrate, forecast, backtest
 - Run/dataset/model registries
 - Experiment metadata, reproducibility hashes
 - Dashboard: observed data browser, calibration diagnostics, forecast fan charts
+- **Streamlit dashboard**: AI Query tab (NL interpreter), Report Generator tab, Multi-Agent Forum tab
+- **Docker deployment**: Dockerfile, docker-compose.yml with dashboard + batch runner services
 **Success criteria**: End-to-end workflow accessible via API; dashboard shows forecast fan charts
-**Note**: API endpoints complete (simulate, calibrate, forecast, backtest, data pull); dashboard fan charts in Streamlit; persistence pending
+**Note**: API endpoints complete; Streamlit dashboard fully integrated with LLM features; Docker deployment ready
 
 ---
 
@@ -158,14 +160,14 @@
 - **Phases M0-M7**: Complete (core implementation)
 - **Phase M3**: All four policy interfaces wired into engine, calibration, forecasting, and RL
 - **Phase M8 (performance)**: Not started
-- **Phase M9 (platform)**: In progress — API complete (simulate/calibrate/forecast/backtest/data), Streamlit fan charts, FRED pipelines
+- **Phase M9 (platform)**: Complete — API, Streamlit dashboard (with AI Query, Reports, Forum tabs), Docker deployment
 - **Phase M10 (LLM intelligence)**: Complete — LLM agents, reports, NL interface, forum
-- **Tests**: 629 passing
+- **Tests**: 629+ passing
 - **New modules**: data, measurement, policies, calibration, forecasting, learning, rl/macro_env, llm, reports, nl, forum
 
 ## Next Priority Actions
-1. Profile and parallelize calibration/forecasting runs
-2. Build PyTorch transformer training for production
+1. Profile and parallelize calibration/forecasting runs (M8)
+2. Build PyTorch transformer training for production (M7 completion)
 3. Run FRED data pulls with real API key and calibrate to empirical moments
-4. Add LLM-powered agents to Next.js dashboard UI
-5. Docker deployment configuration
+4. Add CI/CD pipeline (GitHub Actions)
+5. Kubernetes deployment manifests

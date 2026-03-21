@@ -146,6 +146,13 @@ with st.sidebar.expander("**Forecast**"):
     fc_burn_in = st.number_input("Burn-in periods", 5, 100, 20, step=5)
     fc_scenario = st.selectbox("Scenario", ["baseline", "recession", "high_growth", "tight_money"])
 
+with st.sidebar.expander("**AI / LLM**"):
+    llm_model = st.text_input("LLM Model", value="gpt-4o-mini",
+                               help="OpenAI-compatible model name")
+    llm_base_url = st.text_input("API Base URL", value="https://api.openai.com/v1")
+    llm_api_key = st.text_input("API Key", type="password",
+                                 help="Set LLM_API_KEY env var or enter here")
+
 st.sidebar.divider()
 run_btn = st.sidebar.button("▶  Run Simulation", type="primary", use_container_width=True)
 forecast_btn = st.sidebar.button("🔮  Run Forecast", use_container_width=True,
@@ -512,9 +519,10 @@ def make_fan_chart(
 
 # ── Tabs ────────────────────────────────────────────────────────────
 
-tab_macro, tab_labor, tab_fiscal, tab_money, tab_forecast, tab_data = st.tabs([
+tab_macro, tab_labor, tab_fiscal, tab_money, tab_forecast, tab_ai, tab_report, tab_forum, tab_data = st.tabs([
     "📈  Macro", "👷  Labor & Production", "🏛️  Government",
-    "💰  Money & Credit", "🔮  Forecasts", "📋  Data",
+    "💰  Money & Credit", "🔮  Forecasts",
+    "🤖  AI Query", "📝  Reports", "🗣️  Forum", "📋  Data",
 ])
 
 # ── Macro tab ───────────────────────────────────────────────────────
@@ -663,6 +671,261 @@ with tab_forecast:
                 "econosim_forecast.csv",
                 "text/csv",
             )
+
+# ── AI Query tab ──────────────────────────────────────────────────
+
+with tab_ai:
+    st.markdown("### 🤖 Natural Language Economic Query")
+    st.markdown("Describe an economic scenario or question in plain English. "
+                "The AI will configure and run a simulation automatically.")
+
+    nl_query = st.text_area(
+        "Your economic question",
+        placeholder="e.g., What happens if we raise taxes to 30% during a recession with high unemployment?",
+        height=100,
+    )
+    nl_run = st.button("🚀  Run AI Query", type="primary")
+
+    if nl_run and nl_query:
+        import os
+        api_key = llm_api_key or os.environ.get("LLM_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+        if not api_key:
+            st.error("Please provide an LLM API key in the sidebar AI/LLM section or set the LLM_API_KEY environment variable.")
+        else:
+            from econosim.llm.client import LLMClient, LLMConfig
+            from econosim.nl.interpreter import NLInterpreter
+
+            llm_config = LLMConfig(
+                api_key=api_key,
+                base_url=llm_base_url,
+                model=llm_model,
+            )
+
+            with st.spinner("Interpreting query and running simulation..."):
+                client = LLMClient(llm_config)
+                interpreter = NLInterpreter(client)
+                try:
+                    result = interpreter.interpret_and_run(nl_query)
+                    client.close()
+                except Exception as e:
+                    client.close()
+                    st.error(f"Error: {e}")
+                    result = None
+
+            if result:
+                interp = result.get("interpretation", {})
+                st.markdown("#### Interpretation")
+                col_i1, col_i2 = st.columns(2)
+                col_i1.metric("Intent", interp.get("intent", "unknown"))
+                col_i2.metric("Confidence", f"{interp.get('confidence', 0):.0%}")
+                if interp.get("explanation"):
+                    st.info(interp["explanation"])
+
+                if "simulation" in result:
+                    sim = result["simulation"]
+                    analysis = sim.get("analysis", {})
+
+                    st.markdown("#### Results")
+                    rc1, rc2, rc3, rc4 = st.columns(4)
+                    rc1.metric("Regime", analysis.get("regime", "unknown").title())
+                    moments = analysis.get("moments", {})
+                    rc2.metric("GDP Growth", f"{moments.get('mean_gdp_growth', 0):.2%}")
+                    rc3.metric("Unemployment", f"{moments.get('mean_unemployment', 0):.1%}")
+                    rc4.metric("Inflation", f"{moments.get('mean_inflation', 0):.2%}")
+
+                    if analysis.get("trends"):
+                        st.markdown("**Trends:**")
+                        for var, trend in analysis["trends"].items():
+                            st.markdown(f"- **{var}**: {trend}")
+
+                    if analysis.get("events"):
+                        st.markdown("**Events:**")
+                        for event in analysis["events"]:
+                            st.markdown(f"- {event}")
+
+                elif "explanation" in result:
+                    st.markdown("#### Explanation")
+                    st.markdown(result["explanation"])
+
+                elif "scenarios" in result:
+                    st.markdown("#### Scenario Comparison")
+                    for sc in result["scenarios"]:
+                        with st.expander(f"**{sc['name']}**: {sc.get('description', '')}"):
+                            a = sc.get("analysis", {})
+                            st.metric("Regime", a.get("regime", "unknown").title())
+                            if a.get("moments"):
+                                st.json(a["moments"])
+
+
+# ── Report tab ────────────────────────────────────────────────────
+
+with tab_report:
+    st.markdown("### 📝 Economic Analysis Report")
+    st.markdown("Generate a professional economic report from the current simulation results.")
+
+    rpt_col1, rpt_col2, rpt_col3 = st.columns(3)
+    with rpt_col1:
+        report_template = st.selectbox("Report template",
+                                        ["macro_forecast", "scenario_comparison", "stress_test"])
+    with rpt_col2:
+        report_format = st.selectbox("Output format", ["html", "markdown", "json"])
+    with rpt_col3:
+        report_use_llm = st.checkbox("Use LLM for narratives",
+                                      help="Requires API key. Falls back to data-driven if unchecked.")
+
+    report_title = st.text_input("Report title (optional)",
+                                  placeholder="Q1 2026 Economic Outlook")
+
+    report_btn = st.button("📄  Generate Report", type="primary")
+
+    if report_btn:
+        from econosim.reports.engine import ReportEngine, ReportConfig
+
+        llm_client = None
+        if report_use_llm:
+            import os
+            api_key = llm_api_key or os.environ.get("LLM_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+            if api_key:
+                from econosim.llm.client import LLMClient, LLMConfig
+                llm_client = LLMClient(LLMConfig(
+                    api_key=api_key, base_url=llm_base_url, model=llm_model,
+                ))
+            else:
+                st.warning("No API key provided. Generating data-driven report without LLM.")
+
+        rpt_config = ReportConfig(
+            template_name=report_template,
+            title=report_title or "",
+            format=report_format,
+        )
+
+        with st.spinner("Generating report..."):
+            engine = ReportEngine(llm_client=llm_client)
+            report = engine.generate(df, rpt_config)
+            if llm_client:
+                llm_client.close()
+
+        st.success(f"Report generated in {report.elapsed_seconds:.1f}s")
+
+        if report_format == "html":
+            st.components.v1.html(report.to_html(), height=800, scrolling=True)
+            st.download_button(
+                "📥  Download HTML Report",
+                report.to_html(),
+                f"econosim_report_{report_template}.html",
+                "text/html",
+            )
+        elif report_format == "markdown":
+            md_content = report.to_markdown()
+            st.markdown(md_content)
+            st.download_button(
+                "📥  Download Markdown Report",
+                md_content,
+                f"econosim_report_{report_template}.md",
+                "text/markdown",
+            )
+        else:
+            import json as _json
+            json_data = report.to_json()
+            st.json(json_data)
+            st.download_button(
+                "📥  Download JSON Report",
+                _json.dumps(json_data, indent=2),
+                f"econosim_report_{report_template}.json",
+                "application/json",
+            )
+
+
+# ── Forum tab ─────────────────────────────────────────────────────
+
+with tab_forum:
+    st.markdown("### 🗣️ Multi-Agent Analysis Forum")
+    st.markdown("Multiple specialist analysts discuss the simulation results — "
+                "macro, labor, financial, policy, and risk experts collaborate "
+                "with a moderator to produce consensus findings.")
+
+    forum_query = st.text_input(
+        "Focus question (optional)",
+        placeholder="e.g., Is the economy at risk of a deflationary spiral?",
+    )
+    forum_agents = st.multiselect(
+        "Analysts to include",
+        ["macro_analyst", "labor_analyst", "financial_analyst", "policy_analyst", "risk_analyst"],
+        default=["macro_analyst", "labor_analyst", "financial_analyst", "policy_analyst", "risk_analyst"],
+    )
+    forum_rounds = st.slider("Discussion rounds", 1, 3, 2)
+    forum_btn = st.button("🗣️  Start Forum Discussion", type="primary")
+
+    if forum_btn:
+        import os
+        api_key = llm_api_key or os.environ.get("LLM_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+        if not api_key:
+            st.error("Forum requires an LLM API key. Set it in the sidebar or as LLM_API_KEY env var.")
+        else:
+            from econosim.llm.client import LLMClient, LLMConfig
+            from econosim.forum.engine import ForumEngine, ForumConfig
+
+            llm_config = LLMConfig(
+                api_key=api_key, base_url=llm_base_url, model=llm_model,
+            )
+
+            with st.spinner(f"Running forum: {len(forum_agents)} analysts, {forum_rounds} rounds..."):
+                client = LLMClient(llm_config)
+                forum_engine = ForumEngine(client)
+                forum_config = ForumConfig(
+                    agents=forum_agents,
+                    num_rounds=forum_rounds,
+                )
+                try:
+                    session = forum_engine.run(df, forum_config, query=forum_query)
+                    client.close()
+                except Exception as e:
+                    client.close()
+                    st.error(f"Forum error: {e}")
+                    session = None
+
+            if session:
+                st.success(f"Forum completed in {session.elapsed_seconds:.1f}s")
+
+                # Consensus
+                if session.consensus:
+                    st.markdown("#### 🎯 Consensus")
+                    st.info(session.consensus)
+
+                # Key findings
+                if session.key_findings:
+                    st.markdown("#### Key Findings")
+                    for finding in session.key_findings:
+                        st.markdown(f"- {finding}")
+
+                # Disagreements
+                if session.disagreements:
+                    st.markdown("#### Areas of Disagreement")
+                    for d in session.disagreements:
+                        st.markdown(f"- {d}")
+
+                # Recommendations
+                if session.recommendations:
+                    st.markdown("#### Recommendations")
+                    for i, rec in enumerate(session.recommendations, 1):
+                        st.markdown(f"{i}. {rec}")
+
+                # Full transcript
+                with st.expander("📜 Full Discussion Transcript"):
+                    for msg in session.messages:
+                        role_label = "🎙️ MODERATOR" if msg.role == "moderator" else f"📊 {msg.agent.replace('_', ' ').upper()}"
+                        st.markdown(f"**[Round {msg.round_num}] {role_label}:**")
+                        st.markdown(msg.content)
+                        st.markdown("---")
+
+                # Download transcript
+                st.download_button(
+                    "📥  Download Transcript",
+                    session.to_transcript(),
+                    "econosim_forum_transcript.txt",
+                    "text/plain",
+                )
+
 
 # ── Data tab ────────────────────────────────────────────────────────
 

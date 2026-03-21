@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - FRED_API_KEY=${FRED_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    restart: unless-stopped
+
+  # CLI runner for batch experiments
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["python", "-m", "econosim.experiments.runner"]
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - FRED_API_KEY=${FRED_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    profiles:
+      - batch
